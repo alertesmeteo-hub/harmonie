@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.9.0
+ * Version: 2.10.0
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.9.0');
+define('HKW_VERSION', '2.10.0');
 define('HKW_RELEASE_DATE', '2026-08-23');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
@@ -38,6 +38,19 @@ function hkw_register_assets() {
     wp_register_script(
         'hkw-table',
         plugin_dir_url(__FILE__) . 'assets/harmonie-knmi.js',
+        array(),
+        HKW_VERSION,
+        true
+    );
+    wp_register_style(
+        'hkw-map',
+        plugin_dir_url(__FILE__) . 'assets/harmonie-map.css',
+        array(),
+        HKW_VERSION
+    );
+    wp_register_script(
+        'hkw-map',
+        plugin_dir_url(__FILE__) . 'assets/harmonie-map.js',
         array(),
         HKW_VERSION,
         true
@@ -120,7 +133,7 @@ function hkw_render_admin_help_page() {
     ?>
     <div class="wrap">
         <h1>Shortcodes HARMONIE KNMI France</h1>
-        <p><code>[harmonie_table]</code> : trois tableaux au choix — prévisions générales, prévisions orageuses et risque de neige.</p>
+        <p><code>[harmonie_table]</code> : trois tableaux (prévisions générales, orages, neige) et une carte interactive HARMONIE.</p>
         <p><code>[harmonie_table code="75056" departement="75" ville="Paris" heures="48"]</code></p>
         <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
         <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
@@ -144,7 +157,7 @@ function hkw_render_settings_page() {
             ?>
         </form>
         <h2>Shortcodes</h2>
-        <p><code>[harmonie_table]</code> : trois tableaux au choix — prévisions générales, prévisions orageuses et risque de neige.</p>
+        <p><code>[harmonie_table]</code> : trois tableaux (prévisions générales, orages, neige) et une carte interactive HARMONIE.</p>
         <p><code>[harmonie_table code="75056" departement="75" ville="Paris" heures="48"]</code></p>
         <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
         <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
@@ -208,6 +221,8 @@ function hkw_render_shortcode($atts) {
 
     wp_enqueue_style('hkw-table');
     wp_enqueue_script('hkw-table');
+    wp_enqueue_style('hkw-map');
+    wp_enqueue_script('hkw-map');
 
     ob_start();
     ?>
@@ -299,6 +314,13 @@ function hkw_render_shortcode($atts) {
                 aria-selected="false"
                 data-hkw-tab="snow"
             >❄️ Risque de neige</button>
+            <button
+                type="button"
+                class="hkw-tab hkw-tab-map"
+                role="tab"
+                aria-selected="false"
+                data-hkw-tab="map"
+            >🗺️ Carte</button>
         </div>
 
         <div class="hkw-panel" data-hkw-panel="general">
@@ -423,6 +445,131 @@ function hkw_render_shortcode($atts) {
             <p class="hkw-snow-note">
                 <strong>Lecture neige :</strong> l’épaisseur 1000–500 hPa est exprimée en décamètres. Les niveaux 925 et 850 hPa sont des sorties directes P3 ; 975, 950 et 900 hPa sont interpolés à partir du profil P3 et apparaissent uniquement dans « Détails ».
             </p>
+        </div>
+
+        <div class="hkw-panel" data-hkw-panel="map" hidden>
+            <section
+                id="<?php echo esc_attr($input_id . '-map'); ?>"
+                class="hmap-card"
+                data-hmap-app
+                data-base-url="<?php echo esc_url(hkw_base_url()); ?>"
+                data-variable="temperature"
+                data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
+                data-animation="1"
+                data-module-version="<?php echo esc_attr(HKW_VERSION); ?>"
+                style="--hmap-height: 560px"
+            >
+                <div class="hmap-toolbar">
+                    <div class="hmap-field hmap-layer-picker">
+                        <span>Paramètre</span>
+                        <button
+                            type="button"
+                            class="hmap-layer-trigger"
+                            data-hmap-menu-toggle
+                            aria-expanded="false"
+                            aria-controls="<?php echo esc_attr($input_id . '-map-layers'); ?>"
+                        >
+                            <span data-hmap-current-layer>Température à 2 m</span>
+                            <span class="hmap-layer-chevron" aria-hidden="true">⌄</span>
+                        </button>
+                    </div>
+                    <div class="hmap-tools" aria-label="Outils de la carte">
+                        <button
+                            type="button"
+                            class="hmap-tool-toggle"
+                            data-hmap-tool="zoom"
+                            aria-pressed="false"
+                            title="Afficher les outils de capture et d’épinglage"
+                        >🔍 Zoom interactif</button>
+                        <button
+                            type="button"
+                            class="hmap-tool-toggle"
+                            data-hmap-tool="diagram"
+                            aria-pressed="false"
+                            title="Cliquer sur la carte pour afficher le diagramme d’un point"
+                        >📈 Diagramme</button>
+                    </div>
+                    <div class="hmap-time-controls" aria-label="Navigation dans les échéances">
+                        <button type="button" data-hmap-previous title="Échéance précédente" aria-label="Échéance précédente">◀</button>
+                        <button type="button" data-hmap-play title="Lancer l’animation" aria-label="Lancer l’animation">▶</button>
+                        <button type="button" data-hmap-next title="Échéance suivante" aria-label="Échéance suivante">▶</button>
+                    </div>
+                    <div class="hmap-validity">
+                        <span>Prévision valable</span>
+                        <strong data-hmap-validity>—</strong>
+                        <small data-hmap-lead>—</small>
+                    </div>
+                </div>
+
+                <p class="hmap-tool-hint" data-hmap-tool-hint hidden></p>
+
+                <div
+                    id="<?php echo esc_attr($input_id . '-map-layers'); ?>"
+                    class="hmap-layer-menu"
+                    data-hmap-layer-menu
+                    hidden
+                >
+                    <div class="hmap-layer-menu-head">
+                        <div>
+                            <strong>Choisir une carte HARMONIE</strong>
+                            <small>Paramètres disponibles dans le pipeline national</small>
+                        </div>
+                        <button type="button" data-hmap-menu-close aria-label="Réduire le menu">×</button>
+                    </div>
+                    <div class="hmap-layer-grid" data-hmap-layer-grid></div>
+                </div>
+
+                <p class="hkw-stale" data-hmap-stale role="status" hidden>
+                    Attention : la dernière production disponible a plus de 8 heures.
+                </p>
+
+                <div class="hmap-viewport" data-hmap-viewport role="img" aria-label="Carte météo HARMONIE interactive">
+                    <div class="hmap-scene" data-hmap-scene>
+                        <canvas class="hmap-weather-canvas" data-hmap-weather aria-hidden="true"></canvas>
+                        <canvas class="hmap-vector-canvas" data-hmap-vectors aria-hidden="true"></canvas>
+                    </div>
+                    <canvas class="hmap-label-canvas" data-hmap-labels aria-hidden="true"></canvas>
+                    <div class="hmap-probe" data-hmap-probe hidden>
+                        <strong data-hmap-probe-value>—</strong>
+                        <span data-hmap-probe-label>Valeur HARMONIE</span>
+                    </div>
+                    <div class="hmap-map-titlebar">
+                        <strong data-hmap-map-title>Carte HARMONIE</strong>
+                        <span data-hmap-map-run>Run HARMONIE —</span>
+                    </div>
+                    <div class="hmap-map-date" data-hmap-map-date>Échéance —</div>
+                    <div class="hmap-map-buttons" aria-label="Commandes de zoom">
+                        <span class="hmap-zoom-level" data-hmap-zoom-level>100 %</span>
+                        <button type="button" data-hmap-zoom-in title="Agrandir" aria-label="Agrandir">+</button>
+                        <button type="button" data-hmap-zoom-out title="Réduire" aria-label="Réduire">−</button>
+                        <button type="button" data-hmap-reset title="Recentrer" aria-label="Recentrer">⌂</button>
+                        <button type="button" data-hmap-fullscreen title="Plein écran" aria-label="Plein écran">⛶</button>
+                    </div>
+                    <div class="hmap-advanced-tools" data-hmap-advanced-tools hidden aria-label="Outils avancés">
+                        <button type="button" data-hmap-capture title="Capturer l’image affichée" aria-label="Capturer l’image affichée">📷 Capture PNG</button>
+                        <button type="button" data-hmap-pin title="Épingler la valeur au clic" aria-label="Épingler la valeur au clic" aria-pressed="false">📌 Figer la valeur</button>
+                    </div>
+                    <div class="hmap-diagram-popup" data-hmap-diagram-popup hidden>
+                        <header>
+                            <strong data-hmap-diagram-title>—</strong>
+                            <button type="button" data-hmap-diagram-close aria-label="Fermer le diagramme">×</button>
+                        </header>
+                        <div class="hmap-diagram-body" data-hmap-diagram-body>
+                            <p class="hmap-diagram-status" data-hmap-diagram-status>Chargement…</p>
+                        </div>
+                    </div>
+                    <div class="hmap-legend" data-hmap-legend aria-label="Légende de la carte"></div>
+                    <div class="hmap-loading" data-hmap-loading role="status">Chargement de la carte…</div>
+                    <div class="hmap-error" data-hmap-error role="alert" hidden></div>
+                </div>
+
+                <div class="hmap-timeline">
+                    <input data-hmap-slider type="range" min="0" max="0" value="0" step="1" aria-label="Échéance de prévision">
+                    <div class="hmap-timeline-labels"><span>Run</span><span>Échéance maximale</span></div>
+                </div>
+
+                <p class="hkw-map-note" data-hmap-generated>Mise à jour en cours de lecture…</p>
+            </section>
         </div>
 
         <footer class="hkw-footer">

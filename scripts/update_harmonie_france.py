@@ -32,10 +32,25 @@ from eccodes import (
 )
 
 import update_harmonie as base
+from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "2.6.0"
+NATIONAL_PIPELINE_VERSION = "2.7.0"
+MAP_WIDTH = 1600
+MAP_HEIGHT = 1200
+# Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
+MAP_FIELDS = {
+    "temperature_c",
+    "precipitation_mm",
+    "snowfall_mm",
+    "snow_depth_cm",
+    "wind_speed_kmh",
+    "wind_gust_kmh",
+    "pressure_hpa",
+    "cloud_cover_pct",
+    "humidity_pct",
+}
 DEFAULT_CURRENT_METADATA_URL = (
     "https://raw.githubusercontent.com/alertesmeteo-hub/"
     "harmonie-knmi/data/index.json"
@@ -306,6 +321,9 @@ class NationalGrid:
     def __init__(self, catalog: NationalCatalog):
         self.catalog = catalog
         self._rotations: np.ndarray | None = None
+        self._full_rotations: np.ndarray | None = None
+        self._full_latitudes: np.ndarray | None = None
+        self._full_longitudes: np.ndarray | None = None
         self._validated = False
 
     def validate(self, gid: int) -> None:
@@ -372,6 +390,57 @@ class NationalGrid:
                 longitudes,
             )
         self._rotations = rotations
+        return rotations
+
+    def native_coordinates(self, gid: int) -> tuple[np.ndarray, np.ndarray]:
+        """Latitudes/longitudes de la grille HARMONIE native complète.
+
+        Mises en cache après le premier appel : la grille ne change pas
+        entre les échéances d'un même run.
+        """
+
+        self.validate(gid)
+        if self._full_latitudes is None or self._full_longitudes is None:
+            self._full_latitudes = np.asarray(
+                codes_get_double_array(gid, "latitudes"), dtype=np.float64
+            )
+            self._full_longitudes = np.asarray(
+                codes_get_double_array(gid, "longitudes"), dtype=np.float64
+            )
+        return self._full_latitudes, self._full_longitudes
+
+    def extract_full(self, gid: int) -> np.ndarray:
+        """Champ natif complet (tous les points, pas seulement les communes).
+
+        Utilisé uniquement pour produire les cartes ; le tableau horaire par
+        commune continue de passer par ``extract`` (sous-ensemble sparse).
+        """
+
+        self.validate(gid)
+        values = np.asarray(codes_get_double_array(gid, "values"), dtype=np.float64)
+        values[~np.isfinite(values) | (np.abs(values) > 1.0e20)] = np.nan
+        return values
+
+    def rotations_full(self, gid: int) -> np.ndarray:
+        self.validate(gid)
+        if self._full_rotations is not None:
+            return self._full_rotations
+        relative = base.safe_get_long(gid, "uvRelativeToGrid", None)
+        grid_type = str(base.safe_get(gid, "gridType", ""))
+        latitudes, longitudes = self.native_coordinates(gid)
+        if relative == 0 or (relative is None and "rotated" not in grid_type):
+            self._full_rotations = np.zeros(len(latitudes))
+            return self._full_rotations
+
+        rotations = np.empty(len(latitudes), dtype=np.float64)
+        for model_index in range(len(latitudes)):
+            rotations[model_index] = base.calculate_grid_north_bearing(
+                gid,
+                model_index,
+                latitudes,
+                longitudes,
+            )
+        self._full_rotations = rotations
         return rotations
 
 
@@ -732,6 +801,8 @@ def parse_grib_file(
     grid: NationalGrid,
     lead_hint: int,
     run_hint: datetime | None,
+    *,
+    want_map_fields: bool = False,
 ) -> dict[str, Any]:
     point_count = len(grid.catalog.model_indexes)
     step: dict[str, Any] = {
@@ -742,6 +813,9 @@ def parse_grib_file(
         "precip_end_step": None,
         "values": {},
         "rotations": None,
+        "map_values": {} if want_map_fields else None,
+        "map_rotations": None,
+        "map_point_count": None,
     }
     with path.open("rb") as handle:
         while True:
@@ -766,6 +840,13 @@ def parse_grib_file(
                     step["precip_end_step"] = base.safe_get_long(gid, "endStep")
                 if name == "wind_u_ms":
                     step["rotations"] = grid.rotations(gid)
+                if want_map_fields:
+                    full_values = grid.extract_full(gid)
+                    step["map_values"][name] = full_values
+                    if step["map_point_count"] is None:
+                        step["map_point_count"] = len(full_values)
+                    if name == "wind_u_ms":
+                        step["map_rotations"] = grid.rotations_full(gid)
             finally:
                 codes_release(gid)
 
@@ -779,6 +860,12 @@ def parse_grib_file(
         step["values"].setdefault(name, empty_values(point_count))
     if step["rotations"] is None:
         step["rotations"] = np.zeros(point_count)
+    if want_map_fields:
+        map_point_count = step["map_point_count"] or 0
+        for name in REQUIRED_PARAMETERS:
+            step["map_values"].setdefault(name, empty_values(map_point_count))
+        if step["map_rotations"] is None:
+            step["map_rotations"] = np.zeros(map_point_count)
     return step
 
 
@@ -1330,9 +1417,15 @@ def decode_national_archive(
 
     grid = NationalGrid(catalog)
     previous_cumulative: np.ndarray | None = None
+    map_previous_cumulative: np.ndarray | None = None
     model_run: datetime | None = None
     model_altitudes: np.ndarray | None = None
+    map_renderer: HarmonieMapRenderer | None = None
     temporary_grib = working_directory / "current.grib"
+
+    point_departments = np.empty(len(catalog.model_indexes), dtype=object)
+    for code, department in catalog.departments.items():
+        point_departments[department.global_point_ids] = code
 
     try:
         with tarfile.open(archive, mode="r:*") as tar:
@@ -1352,7 +1445,9 @@ def decode_national_archive(
                     len(members),
                     lead,
                 )
-                step = parse_grib_file(temporary_grib, grid, lead, run)
+                step = parse_grib_file(
+                    temporary_grib, grid, lead, run, want_map_fields=True
+                )
                 if model_run is None:
                     model_run = step.get("run_time")
                 transformed, previous_cumulative = transform_step(
@@ -1374,11 +1469,60 @@ def decode_national_archive(
                         separators=(",", ":"),
                     )
                     line_handles[code].write("\n")
+
+                map_step = {
+                    "values": step["map_values"],
+                    "rotations": step["map_rotations"],
+                    "precip_start_step": step["precip_start_step"],
+                    "precip_end_step": step["precip_end_step"],
+                }
+                map_transformed, map_previous_cumulative = transform_step(
+                    map_step, map_previous_cumulative
+                )
+                if map_renderer is None:
+                    # `parse_grib_file` a déjà déclenché `rotations_full`
+                    # (sur le message "wind_u_ms"), ce qui peuple le cache
+                    # interne des coordonnées natives de `grid`.
+                    map_renderer = HarmonieMapRenderer(
+                        grid._full_latitudes,
+                        grid._full_longitudes,
+                        result_directory / "maps",
+                        width=MAP_WIDTH,
+                        height=MAP_HEIGHT,
+                        bounds=DEFAULT_BOUNDS,
+                        france_latitudes=catalog.point_latitudes,
+                        france_longitudes=catalog.point_longitudes,
+                        france_departments=point_departments,
+                        boundary_directory=(
+                            Path(__file__).resolve().parents[1]
+                            / "config"
+                            / "natural-earth"
+                        ),
+                    )
+                map_renderer.render_step(
+                    lead_hour=lead,
+                    valid_time=valid_time,
+                    fields={
+                        key: values
+                        for key, values in map_transformed.items()
+                        if key in MAP_FIELDS
+                    },
+                )
                 temporary_grib.unlink(missing_ok=True)
     finally:
         for handle in line_handles.values():
             handle.close()
         temporary_grib.unlink(missing_ok=True)
+
+    if map_renderer is not None:
+        map_renderer.write_manifest(
+            generated_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            run_time=(
+                model_run.isoformat().replace("+00:00", "Z")
+                if model_run is not None
+                else None
+            ),
+        )
 
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     model = {

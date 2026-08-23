@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.9.0
+Stable tag: 2.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,6 +30,10 @@ Exemple limité à une seule ville, sans champ de recherche :
 `[harmonie_table code="66136" departement="66" ville="Perpignan" heures="48" selecteur="non"]`
 
 == Changelog ==
+
+= 2.10.0 =
+* Nouvel onglet « Carte » : cartes météo HARMONIE interactives (température, précipitations, neige, vent, rafales, pression, nébulosité, humidité) avec zoom/pan, diagramme au clic et capture PNG — même moteur que le module AROME.
+* Le pipeline national produit désormais un manifeste `maps/index.json` en plus des tableaux par département.
 
 = 2.9.0 =
 * Migration vers le nouveau dépôt dédié `alertesmeteo-hub/harmonie` (données publiées sur sa branche `data`).
