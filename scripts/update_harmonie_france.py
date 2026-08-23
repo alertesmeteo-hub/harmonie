@@ -42,16 +42,25 @@ MAP_HEIGHT = 1200
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
 MAP_FIELDS = {
     "temperature_c",
+    "temperature_max_c",
+    "temperature_min_c",
     "dewpoint_c",
+    "wind_chill_c",
     "temperature_850_c",
     "visibility_km",
     "precipitation_mm",
+    "precipitation_total_mm",
     "snowfall_mm",
+    "snow_cumulative_mm",
     "snow_depth_cm",
     "wind_speed_kmh",
     "wind_gust_kmh",
+    "gust_max_kmh",
     "pressure_hpa",
     "cloud_cover_pct",
+    "cloud_low_pct",
+    "cloud_mid_pct",
+    "cloud_high_pct",
     "humidity_pct",
 }
 DEFAULT_CURRENT_METADATA_URL = (
@@ -878,14 +887,19 @@ def rounded(values: np.ndarray, decimals: int) -> np.ndarray:
 
 def transform_step(
     step: dict[str, Any],
-    previous_cumulative: np.ndarray | None,
-) -> tuple[dict[str, np.ndarray], np.ndarray | None]:
+    state: dict[str, np.ndarray] | None,
+) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    state = state or {}
+    previous_cumulative = state.get("precip_cumulative")
     raw = step["values"]
     temperature_calc = raw["temperature_k"] - 273.15
     humidity_calc = normalize_relative_humidity(raw["humidity_pct"])
     temperature = rounded(temperature_calc, 0)
     humidity = rounded(humidity_calc, 0)
     cloud = rounded(normalize_relative_humidity(raw["cloud_pct"]), 0)
+    cloud_low = rounded(normalize_relative_humidity(raw["cloud_low_pct"]), 0)
+    cloud_mid = rounded(normalize_relative_humidity(raw["cloud_mid_pct"]), 0)
+    cloud_high = rounded(normalize_relative_humidity(raw["cloud_high_pct"]), 0)
     pressure = rounded(raw["pressure_pa"] / 100.0, 0)
     visibility = rounded(raw["visibility_m"] / 1000.0, 1)
     surface_pressure = raw["surface_pressure_pa"] / 100.0
@@ -911,6 +925,9 @@ def transform_step(
     else:
         precipitation = precipitation_raw.copy()
     precipitation = rounded(precipitation, 1)
+    # Cumul depuis le début du run HARMONIE (avant désaccumulation horaire) —
+    # utilisé uniquement pour la couche carte « Précipitations totales ».
+    precipitation_total = rounded(precipitation_raw, 1)
 
     convective_precipitation = rounded(
         np.maximum(raw["convective_precipitation_raw_mm"], 0.0), 1
@@ -925,6 +942,19 @@ def transform_step(
         np.hypot(raw["gust_u_ms"], raw["gust_v_ms"]) * 3.6,
         0,
     )
+
+    # Refroidissement éolien (formule Environnement Canada / NWS, °C, km/h).
+    # Sans effet hors de son domaine de validité (T > 10°C ou vent faible) :
+    # la température ressentie retombe alors sur la température réelle.
+    wind_chill_v16 = np.power(np.maximum(wind_speed, 0.001), 0.16)
+    wind_chill_raw = (
+        13.12
+        + 0.6215 * temperature_calc
+        - 11.37 * wind_chill_v16
+        + 0.3965 * temperature_calc * wind_chill_v16
+    )
+    wind_chill_valid = (temperature_calc <= 10.0) & (wind_speed > 4.8)
+    wind_chill = rounded(np.where(wind_chill_valid, wind_chill_raw, temperature_calc), 1)
 
     condition = np.zeros(len(temperature), dtype=np.int16)
     condition[np.isfinite(cloud) & (cloud <= 20)] = 1
@@ -1205,6 +1235,28 @@ def transform_step(
     )
     snow_phase[precip_present & (snow_fraction >= 0.15)] = 2
     snow_phase[precip_present & (snow_fraction >= 0.65)] = 3
+
+    # Agrégats glissants depuis le début du run (température mini/maxi,
+    # rafale maximale, cumul de neige) — utilisés uniquement pour les
+    # couches carte dédiées, pas pour le tableau par commune.
+    def running_max(key: str, values: np.ndarray) -> np.ndarray:
+        previous = state.get(key)
+        return values.copy() if previous is None else np.fmax(previous, values)
+
+    def running_min(key: str, values: np.ndarray) -> np.ndarray:
+        previous = state.get(key)
+        return values.copy() if previous is None else np.fmin(previous, values)
+
+    temperature_max = running_max("temperature_max", temperature)
+    temperature_min = running_min("temperature_min", temperature)
+    gust_max = running_max("gust_max", gust_speed)
+    previous_snow_cumulative = state.get("snow_cumulative")
+    snow_cumulative = (
+        snowfall.copy()
+        if previous_snow_cumulative is None
+        else previous_snow_cumulative + np.nan_to_num(snowfall, nan=0.0)
+    )
+    snow_cumulative = rounded(snow_cumulative, 1)
     snow_phase[np.isfinite(snowfall) & (snowfall >= 0.05) & ~precip_present] = 3
 
     return (
@@ -1212,7 +1264,16 @@ def transform_step(
             "temperature_c": temperature,
             "humidity_pct": humidity,
             "precipitation_mm": precipitation,
+            "precipitation_total_mm": precipitation_total,
             "cloud_cover_pct": cloud,
+            "cloud_low_pct": cloud_low,
+            "cloud_mid_pct": cloud_mid,
+            "cloud_high_pct": cloud_high,
+            "wind_chill_c": wind_chill,
+            "temperature_max_c": temperature_max,
+            "temperature_min_c": temperature_min,
+            "gust_max_kmh": gust_max,
+            "snow_cumulative_mm": snow_cumulative,
             "wind_speed_kmh": wind_speed,
             "wind_direction_deg": wind_direction,
             "wind_gust_kmh": gust_speed,
@@ -1264,7 +1325,13 @@ def transform_step(
             "geopotential_850_m": rounded(z_levels[850], 0),
             "model_altitude_m": model_altitude_m,
         },
-        previous_cumulative,
+        {
+            "precip_cumulative": previous_cumulative,
+            "temperature_max": temperature_max,
+            "temperature_min": temperature_min,
+            "gust_max": gust_max,
+            "snow_cumulative": snow_cumulative,
+        },
     )
 
 
@@ -1460,8 +1527,8 @@ def decode_national_archive(
     }
 
     grid = NationalGrid(catalog)
-    previous_cumulative: np.ndarray | None = None
-    map_previous_cumulative: np.ndarray | None = None
+    running_state: dict[str, np.ndarray] | None = None
+    map_running_state: dict[str, np.ndarray] | None = None
     model_run: datetime | None = None
     model_altitudes: np.ndarray | None = None
     map_renderer: HarmonieMapRenderer | None = None
@@ -1494,8 +1561,8 @@ def decode_national_archive(
                 )
                 if model_run is None:
                     model_run = step.get("run_time")
-                transformed, previous_cumulative = transform_step(
-                    step, previous_cumulative
+                transformed, running_state = transform_step(
+                    step, running_state
                 )
                 if model_altitudes is None:
                     model_altitudes = transformed["model_altitude_m"].copy()
@@ -1520,8 +1587,8 @@ def decode_national_archive(
                     "precip_start_step": step["precip_start_step"],
                     "precip_end_step": step["precip_end_step"],
                 }
-                map_transformed, map_previous_cumulative = transform_step(
-                    map_step, map_previous_cumulative
+                map_transformed, map_running_state = transform_step(
+                    map_step, map_running_state
                 )
                 if map_renderer is None:
                     # `parse_grib_file` a déjà déclenché `rotations_full`
