@@ -1,0 +1,89 @@
+name: Mise à jour HARMONIE France
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Les heures planifiées par GitHub sont toujours en UTC.
+    - cron: "27 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-harmonie-france
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    # La première archive peut être volumineuse ; les passages suivants
+    # s'arrêtent vite tant que le KNMI n'a pas publié un nouveau run.
+    timeout-minutes: 180
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v7
+
+      - name: Installer Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installer ecCodes et les dépendances
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Télécharger et décoder HARMONIE pour toutes les communes
+        id: build
+        env:
+          KNMI_API_KEY: ${{ secrets.KNMI_API_KEY }}
+          LOG_LEVEL: INFO
+        run: |
+          python scripts/update_harmonie_france.py \
+            --catalog config/communes-france.json \
+            --output-dir build/national \
+            --forecast-hours 48 \
+            --current-metadata-url \
+            "https://raw.githubusercontent.com/${{ github.repository }}/data/index.json"
+          if test -f build/national/index.json; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Aucune nouvelle échéance nationale à publier."
+          fi
+
+      - name: Vérifier la publication
+        if: steps.build.outputs.publish == 'true'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("build/national")
+          index = json.loads((root / "index.json").read_text(encoding="utf-8"))
+          assert index["status"] == "ok"
+          assert index["coverage"]["communes"] == 34746
+          assert (root / "departements/66.json").is_file()
+          print(
+              f"Validation OK : {index['coverage']['communes']} communes, "
+              f"run {index.get('run', '?')}"
+          )
+          PY
+
+      - name: Publier les fichiers nationaux sur la branche data
+        if: steps.build.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          publish_dir="$(mktemp -d)"
+          cp -a build/national/. "$publish_dir/"
+          touch "$publish_dir/.nojekyll"
+          cd "$publish_dir"
+          git init -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "Mise à jour HARMONIE France $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPOSITORY}.git"
+          git push --force origin data
