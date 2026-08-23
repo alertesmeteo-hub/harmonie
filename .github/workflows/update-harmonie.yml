@@ -67,7 +67,7 @@ jobs:
 
           maps = json.loads((root / "maps/index.json").read_text(encoding="utf-8"))
           assert maps["status"] == "ok"
-          assert len(maps["layers"]) >= 10
+          assert len(maps["layers"]) >= 18
           assert len(maps["steps"]) >= 1
 
           print(
