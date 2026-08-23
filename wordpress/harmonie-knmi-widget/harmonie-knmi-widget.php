@@ -1,0 +1,445 @@
+<?php
+/**
+ * Plugin Name: Tableau HARMONIE KNMI France
+ * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
+ * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
+ * Version: 2.9.0
+ * Author: Alertes Météo Hub
+ * Requires at least: 5.8
+ * Requires PHP: 7.4
+ * License: GPL-2.0-or-later
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+define('HKW_VERSION', '2.9.0');
+define('HKW_RELEASE_DATE', '2026-08-23');
+define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
+define(
+    'HKW_DEFAULT_BASE_URL',
+    'https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/data'
+);
+
+add_action('wp_enqueue_scripts', 'hkw_register_assets');
+add_action('admin_init', 'hkw_register_settings');
+add_action('admin_menu', 'hkw_add_settings_page');
+add_shortcode('harmonie_table', 'hkw_render_shortcode');
+add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'hkw_plugin_action_links');
+
+function hkw_register_assets() {
+    wp_register_style(
+        'hkw-table',
+        plugin_dir_url(__FILE__) . 'assets/harmonie-knmi.css',
+        array(),
+        HKW_VERSION
+    );
+    wp_register_script(
+        'hkw-table',
+        plugin_dir_url(__FILE__) . 'assets/harmonie-knmi.js',
+        array(),
+        HKW_VERSION,
+        true
+    );
+}
+
+function hkw_register_settings() {
+    register_setting(
+        'hkw_settings',
+        HKW_OPTION_BASE_URL,
+        array(
+            'type' => 'string',
+            'sanitize_callback' => 'esc_url_raw',
+            'default' => HKW_DEFAULT_BASE_URL,
+        )
+    );
+
+    add_settings_section(
+        'hkw_main_section',
+        'Source des données nationales',
+        '__return_false',
+        'harmonie-knmi'
+    );
+
+    add_settings_field(
+        'hkw_data_base_url_field',
+        'Adresse du dossier de données',
+        'hkw_render_url_field',
+        'harmonie-knmi',
+        'hkw_main_section'
+    );
+}
+
+function hkw_render_url_field() {
+    $value = get_option(HKW_OPTION_BASE_URL, HKW_DEFAULT_BASE_URL);
+    printf(
+        '<input type="url" class="regular-text code" name="%1$s" value="%2$s" autocomplete="off">',
+        esc_attr(HKW_OPTION_BASE_URL),
+        esc_attr($value)
+    );
+    echo '<p class="description">Conservez l’adresse proposée : elle pointe vers la branche nationale « data » du dépôt.</p>';
+}
+
+function hkw_add_settings_page() {
+    add_options_page(
+        'Tableau HARMONIE KNMI France',
+        'HARMONIE KNMI',
+        'manage_options',
+        'harmonie-knmi',
+        'hkw_render_settings_page'
+    );
+    add_submenu_page(
+        null,
+        'Shortcodes HARMONIE KNMI',
+        'Shortcodes HARMONIE KNMI',
+        'manage_options',
+        'harmonie-knmi-aide',
+        'hkw_render_admin_help_page'
+    );
+}
+
+function hkw_plugin_action_links($links) {
+    $help_link = sprintf(
+        '<a href="%s">Shortcodes / Aide</a>',
+        esc_url(admin_url('admin.php?page=harmonie-knmi-aide'))
+    );
+    $settings_link = sprintf(
+        '<a href="%s">Réglages</a>',
+        esc_url(admin_url('options-general.php?page=harmonie-knmi'))
+    );
+    array_unshift($links, $help_link);
+    array_unshift($links, $settings_link);
+    return $links;
+}
+
+function hkw_render_admin_help_page() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    ?>
+    <div class="wrap">
+        <h1>Shortcodes HARMONIE KNMI France</h1>
+        <p><code>[harmonie_table]</code> : trois tableaux au choix — prévisions générales, prévisions orageuses et risque de neige.</p>
+        <p><code>[harmonie_table code="75056" departement="75" ville="Paris" heures="48"]</code></p>
+        <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
+        <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
+        <p>Voir <a href="<?php echo esc_url(admin_url('options-general.php?page=harmonie-knmi')); ?>">Réglages</a> pour l’adresse du dossier de données national.</p>
+    </div>
+    <?php
+}
+
+function hkw_render_settings_page() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    ?>
+    <div class="wrap">
+        <h1>Tableau HARMONIE KNMI France</h1>
+        <form action="options.php" method="post">
+            <?php
+            settings_fields('hkw_settings');
+            do_settings_sections('harmonie-knmi');
+            submit_button();
+            ?>
+        </form>
+        <h2>Shortcodes</h2>
+        <p><code>[harmonie_table]</code> : trois tableaux au choix — prévisions générales, prévisions orageuses et risque de neige.</p>
+        <p><code>[harmonie_table code="75056" departement="75" ville="Paris" heures="48"]</code></p>
+        <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
+        <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
+    </div>
+    <?php
+}
+
+function hkw_base_url() {
+    $url = get_option(HKW_OPTION_BASE_URL, HKW_DEFAULT_BASE_URL);
+    return untrailingslashit(apply_filters('hkw_national_data_base_url', $url));
+}
+
+function hkw_department_code($value) {
+    $code = strtoupper(trim((string) $value));
+    return preg_match('/^(?:\d{2}|2A|2B)$/', $code) ? $code : '66';
+}
+
+function hkw_commune_code($value) {
+    $code = strtoupper(trim((string) $value));
+    return preg_match('/^[0-9A-Z]{5}$/', $code) ? $code : '66136';
+}
+
+function hkw_unique_identifier() {
+    if (function_exists('wp_unique_id')) {
+        return wp_unique_id('hkw-city-');
+    }
+    return 'hkw-city-' . wp_rand(1000, 999999);
+}
+
+function hkw_render_shortcode($atts) {
+    $atts = shortcode_atts(
+        array(
+            'ville' => 'Perpignan',
+            'code' => '66136',
+            'departement' => '66',
+            'heures' => '48',
+            'titre' => '',
+            'selecteur' => 'oui',
+        ),
+        $atts,
+        'harmonie_table'
+    );
+
+    $hours = max(1, min(48, absint($atts['heures'])));
+    $city_name = sanitize_text_field($atts['ville']);
+    if ($city_name === '') {
+        $city_name = 'Perpignan';
+    }
+    $city_code = hkw_commune_code($atts['code']);
+    $department = hkw_department_code($atts['departement']);
+    $title_prefix = trim(sanitize_text_field($atts['titre']));
+    if ($title_prefix === '') {
+        $title_prefix = 'Prévisions HARMONIE';
+    }
+    $selector_value = strtolower(trim(sanitize_text_field($atts['selecteur'])));
+    $show_selector = !in_array($selector_value, array('non', '0', 'false', 'off'), true);
+
+    $input_id = hkw_unique_identifier();
+    $results_id = $input_id . '-results';
+    $status_id = $input_id . '-status';
+
+    wp_enqueue_style('hkw-table');
+    wp_enqueue_script('hkw-table');
+
+    ob_start();
+    ?>
+    <section
+        class="hkw-card hkw-national"
+        data-hkw-app
+        data-base-url="<?php echo esc_url(hkw_base_url()); ?>"
+        data-default-code="<?php echo esc_attr($city_code); ?>"
+        data-default-department="<?php echo esc_attr($department); ?>"
+        data-default-name="<?php echo esc_attr($city_name); ?>"
+        data-hours="<?php echo esc_attr($hours); ?>"
+        data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
+        data-title-prefix="<?php echo esc_attr($title_prefix); ?>"
+        data-selector="<?php echo $show_selector ? '1' : '0'; ?>"
+    >
+        <header class="hkw-header">
+            <div>
+                <p class="hkw-kicker">MODÈLE HAUTE RÉSOLUTION • FRANCE MÉTROPOLITAINE</p>
+                <h2 data-hkw-title><?php echo esc_html($title_prefix . ' — ' . $city_name); ?></h2>
+                <p class="hkw-city-altitude" data-hkw-altitude>Altitude de <?php echo esc_html($city_name); ?> : chargement…</p>
+                <p class="hkw-meta" data-hkw-meta>Chargement du dernier run HARMONIE…</p>
+            </div>
+            <div class="hkw-badge">HARMONIE<br><strong>AROME</strong></div>
+        </header>
+
+        <div class="hkw-toolbar" <?php if (!$show_selector) : ?>hidden<?php endif; ?>>
+            <div class="hkw-search">
+                <label for="<?php echo esc_attr($input_id); ?>">Choisissez votre commune</label>
+                <div class="hkw-search-control">
+                    <span class="hkw-search-icon" aria-hidden="true">⌕</span>
+                    <input
+                        id="<?php echo esc_attr($input_id); ?>"
+                        class="hkw-city-input"
+                        type="search"
+                        value="<?php echo esc_attr($city_name); ?>"
+                        placeholder="Nom de commune ou code postal"
+                        autocomplete="off"
+                        spellcheck="false"
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded="false"
+                        aria-controls="<?php echo esc_attr($results_id); ?>"
+                        aria-describedby="<?php echo esc_attr($status_id); ?>"
+                    >
+                </div>
+                <button type="button" class="hkw-locate-button" data-hkw-locate>📍 Détecter ma ville</button>
+                <div
+                    id="<?php echo esc_attr($results_id); ?>"
+                    class="hkw-search-results"
+                    role="listbox"
+                    hidden
+                ></div>
+                <p
+                    id="<?php echo esc_attr($status_id); ?>"
+                    class="hkw-search-status"
+                    role="status"
+                    aria-live="polite"
+                >Saisissez au moins deux lettres ou un code postal.</p>
+            </div>
+            <div class="hkw-coverage">
+                <strong>34 746 communes</strong>
+                <span>Métropole et Corse</span>
+            </div>
+        </div>
+
+        <p class="hkw-stale" data-hkw-stale role="status" hidden>
+            Attention : la dernière mise à jour disponible a plus de 8 heures.
+        </p>
+
+        <div class="hkw-tabs" role="tablist" aria-label="Type de prévision HARMONIE">
+            <button
+                type="button"
+                class="hkw-tab is-active"
+                role="tab"
+                aria-selected="true"
+                data-hkw-tab="general"
+            >🌤️ Prévisions générales</button>
+            <button
+                type="button"
+                class="hkw-tab hkw-tab-storm"
+                role="tab"
+                aria-selected="false"
+                data-hkw-tab="storms"
+            >⛈️ Prévisions orages</button>
+            <button
+                type="button"
+                class="hkw-tab hkw-tab-snow"
+                role="tab"
+                aria-selected="false"
+                data-hkw-tab="snow"
+            >❄️ Risque de neige</button>
+        </div>
+
+        <div class="hkw-panel" data-hkw-panel="general">
+            <div class="hkw-table-wrap hkw-general-wrap" role="region" aria-label="Prévisions horaires générales" tabindex="0">
+                <table class="hkw-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Heure</th>
+                            <th scope="col">Temps</th>
+                            <th scope="col">T°</th>
+                            <th scope="col">Hum.</th>
+                            <th scope="col">Pluie</th>
+                            <th scope="col">Nuages</th>
+                            <th scope="col">Vent</th>
+                            <th scope="col">Rafales</th>
+                            <th scope="col">Pression</th>
+                        </tr>
+                    </thead>
+                    <tbody data-hkw-body-general>
+                        <tr>
+                            <td colspan="10" class="hkw-loading">Chargement des prévisions…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <section class="hkw-charts" data-hkw-charts aria-label="Diagrammes HARMONIE">
+                <article class="hkw-chart-card">
+                    <h3 data-hkw-chart-title-temperature>Diagramme températures (°C)</h3>
+                    <div class="hkw-chart" data-hkw-chart-temperature></div>
+                </article>
+                <article class="hkw-chart-card">
+                    <h3 data-hkw-chart-title-pressure>Diagramme pression ramenée au niveau de la mer (hPa)</h3>
+                    <div class="hkw-chart" data-hkw-chart-pressure></div>
+                </article>
+                <article class="hkw-chart-card">
+                    <h3 data-hkw-chart-title-rain>Diagramme précipitations (mm)</h3>
+                    <p class="hkw-chart-total" data-hkw-rain-total>Précipitations cumulées : —</p>
+                    <div class="hkw-chart" data-hkw-chart-rain></div>
+                </article>
+                <article class="hkw-chart-card">
+                    <h3 data-hkw-chart-title-wind>Diagramme rafales et vent moyen</h3>
+                    <div class="hkw-chart" data-hkw-chart-wind></div>
+                </article>
+            </section>
+        </div>
+
+        <div class="hkw-panel" data-hkw-panel="storms" hidden>
+            <p class="hkw-storm-summary" data-hkw-storm-summary>
+                Diagnostic convectif HARMONIE P3 : chargement…
+            </p>
+            <div class="hkw-top-scroll" data-hkw-top-scroll="storms" aria-label="Navigation horizontale du tableau orages" hidden><div></div></div>
+            <div class="hkw-table-wrap hkw-storm-wrap" data-hkw-scroll-wrap="storms" role="region" aria-label="Prévisions horaires d'orages" tabindex="0">
+                <table class="hkw-table hkw-storm-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Heure</th>
+                            <th scope="col">Risque orage</th>
+                            <th scope="col">CAPE ≈</th>
+                            <th scope="col">CIN ≈</th>
+                            <th scope="col">LCL</th>
+                            <th scope="col">K Index</th>
+                            <th scope="col">Total Totals</th>
+                            <th scope="col">Foudre</th>
+                            <th scope="col">Grêle</th>
+                            <th scope="col">Pluie conv.</th>
+                            <th scope="col">Graupel</th>
+                            <th scope="col">Pluie 1 h</th>
+                            <th scope="col">Rafales</th>
+                            <th scope="col">T 500</th>
+                            <th scope="col">RH 700</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Détails</th>
+                        </tr>
+                    </thead>
+                    <tbody data-hkw-body-storms>
+                        <tr>
+                            <td colspan="18" class="hkw-loading">Chargement du diagnostic orageux…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="hkw-storm-note">
+                <strong>Lecture expert :</strong> CAPE/CIN marqués ≈ sont des diagnostics sur le profil P3 (surface + 925/850/700/500/300 hPa). Une valeur trop faible ou non robuste est affichée « — » plutôt qu’un faux 0. K Index et Total Totals sont calculés sur P3. Les cisaillements, SRH, Iso 0 °C, Iso −20 °C et ω 500 hPa sont disponibles verticalement sous le bouton « Détails » de chaque échéance.
+            </p>
+        </div>
+
+        <div class="hkw-panel" data-hkw-panel="snow" hidden>
+            <p class="hkw-snow-summary" data-hkw-snow-summary>
+                Diagnostic neige HARMONIE P3 : chargement…
+            </p>
+            <div class="hkw-top-scroll" data-hkw-top-scroll="snow" aria-label="Navigation horizontale du tableau neige" hidden><div></div></div>
+            <div class="hkw-table-wrap hkw-snow-wrap" data-hkw-scroll-wrap="snow" role="region" aria-label="Risque horaire de neige" tabindex="0">
+                <table class="hkw-table hkw-snow-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Heure</th>
+                            <th scope="col">Risque neige</th>
+                            <th scope="col">Phase</th>
+                            <th scope="col">Neige 1 h</th>
+                            <th scope="col">Neige 3 h</th>
+                            <th scope="col">Neige 6 h</th>
+                            <th scope="col">Tenue</th>
+                            <th scope="col">Ép. 1000–500 ≈</th>
+                            <th scope="col">Pres. hPa</th>
+                            <th scope="col">Hum.</th>
+                            <th scope="col">Vent moy. / raf.</th>
+                            <th scope="col">Neige au sol</th>
+                            <th scope="col">Détails</th>
+                        </tr>
+                    </thead>
+                    <tbody data-hkw-body-snow>
+                        <tr>
+                            <td colspan="14" class="hkw-loading">Chargement du risque de neige…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="hkw-snow-note">
+                <strong>Lecture neige :</strong> l’épaisseur 1000–500 hPa est exprimée en décamètres. Les niveaux 925 et 850 hPa sont des sorties directes P3 ; 975, 950 et 900 hPa sont interpolés à partir du profil P3 et apparaissent uniquement dans « Détails ».
+            </p>
+        </div>
+
+        <footer class="hkw-footer">
+            <span data-hkw-generated>Mise à jour en cours de lecture…</span>
+            <span>
+                Données météo directes :
+                <a href="https://dataplatform.knmi.nl/dataset/harmonie-arome-cy43-p3-1-0" target="_blank" rel="noopener noreferrer">KNMI HARMONIE-AROME Cy43</a>
+                • Recherche des communes :
+                <a href="https://geo.api.gouv.fr/decoupage-administratif/communes" target="_blank" rel="noopener noreferrer">API officielle française</a>
+            </span>
+            <span class="hkw-plugin-version">Plugin HARMONIE v<?php echo esc_html(HKW_VERSION); ?> (<?php echo esc_html(HKW_RELEASE_DATE); ?>)</span>
+        </footer>
+
+        <noscript>
+            <p class="hkw-message hkw-error">JavaScript doit être activé pour rechercher une commune.</p>
+        </noscript>
+    </section>
+    <?php
+    return ob_get_clean();
+}
