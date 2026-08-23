@@ -64,8 +64,16 @@ jobs:
           assert index["status"] == "ok"
           assert index["coverage"]["communes"] == 34746
           assert (root / "departements/66.json").is_file()
+
+          maps = json.loads((root / "maps/index.json").read_text(encoding="utf-8"))
+          assert maps["status"] == "ok"
+          assert len(maps["layers"]) >= 5
+          assert len(maps["steps"]) >= 1
+
           print(
               f"Validation OK : {index['coverage']['communes']} communes, "
+              f"{len(maps['layers'])} couches carte, "
+              f"{len(maps['steps'])} échéances, "
               f"run {index.get('run', '?')}"
           )
           PY
