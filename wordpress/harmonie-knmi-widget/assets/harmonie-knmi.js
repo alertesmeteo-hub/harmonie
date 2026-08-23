@@ -971,6 +971,18 @@
             app.dataset.activeView = view;
             if (view === 'storms') { window.requestAnimationFrame(updateStormTopScroll); }
             if (view === 'snow') { window.requestAnimationFrame(updateSnowTopScroll); }
+            if (view === 'map') {
+                // La carte (harmonie-map.js) calcule sa taille de rendu via
+                // viewport.clientWidth/Height au moment du dessin ; tant que
+                // cet onglet est masqué, ces dimensions valent 0 et le
+                // premier rendu (déclenché au chargement des données) est
+                // silencieusement ignoré. On simule un redimensionnement
+                // une fois l'onglet réellement visible pour forcer un
+                // nouveau rendu avec les bonnes dimensions.
+                window.requestAnimationFrame(function () {
+                    window.dispatchEvent(new Event('resize'));
+                });
+            }
         }
 
         tabs.forEach(function (button) {

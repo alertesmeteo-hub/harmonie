@@ -42,6 +42,9 @@ MAP_HEIGHT = 1200
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
 MAP_FIELDS = {
     "temperature_c",
+    "dewpoint_c",
+    "temperature_850_c",
+    "visibility_km",
     "precipitation_mm",
     "snowfall_mm",
     "snow_depth_cm",
@@ -1396,6 +1399,47 @@ def archive_members(
     return members
 
 
+def write_map_places(catalog: NationalCatalog, destination: Path) -> int:
+    """Liste des communes affichées en étiquettes sur la carte HARMONIE."""
+
+    places = [
+        [
+            str(commune[1]),
+            int(commune[3]),
+            round(float(commune[4]), 5),
+            round(float(commune[5]), 5),
+            str(commune[0]),
+            department.code,
+        ]
+        for department in catalog.departments.values()
+        for commune in department.communes
+        if int(commune[3]) > 0
+    ]
+    places.sort(key=lambda place: (-place[1], place[0]))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "schema_version": 2,
+                "columns": [
+                    "name",
+                    "population",
+                    "latitude",
+                    "longitude",
+                    "code_insee",
+                    "department",
+                ],
+                "count": len(places),
+                "places": places,
+            },
+            handle,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        handle.write("\n")
+    return len(places)
+
+
 def decode_national_archive(
     archive: Path,
     catalog: NationalCatalog,
@@ -1515,6 +1559,10 @@ def decode_national_archive(
         temporary_grib.unlink(missing_ok=True)
 
     if map_renderer is not None:
+        places_count = write_map_places(
+            catalog, result_directory / "maps" / "places.json"
+        )
+        LOGGER.info("Étiquettes de communes écrites pour la carte : %s", places_count)
         map_renderer.write_manifest(
             generated_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             run_time=(
@@ -1522,6 +1570,7 @@ def decode_national_archive(
                 if model_run is not None
                 else None
             ),
+            places_path="maps/places.json",
         )
 
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

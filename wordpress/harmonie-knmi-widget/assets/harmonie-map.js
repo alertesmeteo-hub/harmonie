@@ -79,6 +79,7 @@
         var currentLayerText = app.querySelector('[data-hmap-current-layer]');
         var previousButton = app.querySelector('[data-hmap-previous]');
         var playButton = app.querySelector('[data-hmap-play]');
+        var speedSelect = app.querySelector('[data-hmap-speed]');
         var nextButton = app.querySelector('[data-hmap-next]');
         var validity = app.querySelector('[data-hmap-validity]');
         var lead = app.querySelector('[data-hmap-lead]');
@@ -110,7 +111,9 @@
         var toolHint = app.querySelector('[data-hmap-tool-hint]');
         var advancedTools = app.querySelector('[data-hmap-advanced-tools]');
         var captureButton = app.querySelector('[data-hmap-capture]');
+        var copyButton = app.querySelector('[data-hmap-copy]');
         var pinButton = app.querySelector('[data-hmap-pin]');
+        var viewToggleButton = app.querySelector('[data-hmap-view-toggle]');
         var diagramPopup = app.querySelector('[data-hmap-diagram-popup]');
         var diagramTitle = app.querySelector('[data-hmap-diagram-title]');
         var diagramBody = app.querySelector('[data-hmap-diagram-body]');
@@ -123,6 +126,8 @@
         var loadToken = 0;
         var timer = null;
         var transform = { scale: 1, x: 0, y: 0 };
+        var staticView = false;
+        var animationSpeed = speedSelect ? Number(speedSelect.value) || 1 : 1;
         var activePointers = new Map();
         var gesture = null;
         var places = [];
@@ -141,7 +146,11 @@
         var renderFrame = null;
         var webgl = null;
         var fallbackContext = null;
-        var maxScale = 64;
+        // Grille HARMONIE native à 5,5 km (contre 1,3 km pour AROME) sur un
+        // raster de même ordre de grandeur : un zoom aussi poussé que celui
+        // d'AROME (64x) grossit un pixel source flou en bouillie visuelle.
+        // Limité pour rester lisible jusqu'à la résolution réelle des données.
+        var maxScale = 16;
         var pendingFocus = null;
         var toolMode = null;
         var pinnedEnabled = false;
@@ -708,6 +717,42 @@
             }, 'image/png');
         }
 
+        function copyView() {
+            var canvas = composeCaptureCanvas();
+            if (!canvas || !canvas.toBlob) {
+                setToolHint('Copie indisponible pour ce navigateur.');
+                return;
+            }
+            if (!navigator.clipboard || !window.ClipboardItem) {
+                setToolHint('Copie indisponible : votre navigateur ne prend pas en charge le presse-papiers d’images.');
+                return;
+            }
+            canvas.toBlob(function (blob) {
+                if (!blob) {
+                    return;
+                }
+                navigator.clipboard.write([
+                    new window.ClipboardItem({ 'image/png': blob })
+                ]).then(function () {
+                    setToolHint('Vue copiée dans le presse-papiers.');
+                }).catch(function () {
+                    setToolHint('Copie refusée par le navigateur.');
+                });
+            }, 'image/png');
+        }
+
+        function setViewMode(nextStatic) {
+            staticView = Boolean(nextStatic);
+            viewport.classList.toggle('is-static', staticView);
+            if (viewToggleButton) {
+                viewToggleButton.textContent = staticView ? '🔍 Zoom interactif' : '🖼️ Vue PNG';
+                viewToggleButton.setAttribute('aria-pressed', staticView ? 'true' : 'false');
+            }
+            if (staticView) {
+                resetView();
+            }
+        }
+
         function closeDiagram() {
             if (diagramPopup) {
                 diagramPopup.hidden = true;
@@ -1121,6 +1166,21 @@
             playButton.classList.remove('is-playing');
         }
 
+        function animationStep() {
+            var next = currentStep + 1;
+            if (next >= availableSteps().length) {
+                next = 0;
+            }
+            renderStep(next);
+        }
+
+        function startAnimationTimer() {
+            if (timer !== null) {
+                window.clearInterval(timer);
+            }
+            timer = window.setInterval(animationStep, 1050 / animationSpeed);
+        }
+
         function toggleAnimation() {
             if (timer !== null) {
                 stopAnimation();
@@ -1134,13 +1194,7 @@
             playButton.setAttribute('aria-label', 'Arrêter l’animation');
             playButton.title = 'Arrêter l’animation';
             playButton.classList.add('is-playing');
-            timer = window.setInterval(function () {
-                var next = currentStep + 1;
-                if (next >= availableSteps().length) {
-                    next = 0;
-                }
-                renderStep(next);
-            }, 1050);
+            startAnimationTimer();
         }
 
         function resizeCanvas(canvas, width, height, pixelRatio) {
@@ -1633,7 +1687,7 @@
 
         function focusLocation(detail) {
             pendingFocus = detail || null;
-            if (!manifest || !pendingFocus || !manifest.bounds) {
+            if (staticView || !manifest || !pendingFocus || !manifest.bounds) {
                 return;
             }
             var width = viewport.clientWidth;
@@ -1685,6 +1739,14 @@
             renderStep(currentStep + 1);
         });
         playButton.addEventListener('click', toggleAnimation);
+        if (speedSelect) {
+            speedSelect.addEventListener('change', function () {
+                animationSpeed = Number(speedSelect.value) || 1;
+                if (timer !== null) {
+                    startAnimationTimer();
+                }
+            });
+        }
         slider.addEventListener('input', function () {
             stopAnimation();
             renderStep(Number(slider.value));
@@ -1714,6 +1776,14 @@
         if (captureButton) {
             captureButton.addEventListener('click', captureImage);
         }
+        if (copyButton) {
+            copyButton.addEventListener('click', copyView);
+        }
+        if (viewToggleButton) {
+            viewToggleButton.addEventListener('click', function () {
+                setViewMode(!staticView);
+            });
+        }
         if (pinButton) {
             pinButton.addEventListener('click', function () {
                 pinnedEnabled = !pinnedEnabled;
@@ -1727,6 +1797,9 @@
             diagramClose.addEventListener('click', closeDiagram);
         }
         viewport.addEventListener('wheel', function (event) {
+            if (staticView) {
+                return;
+            }
             event.preventDefault();
             changeZoom(
                 transform.scale * Math.pow(1.0015, -event.deltaY),
@@ -1735,6 +1808,9 @@
             );
         }, { passive: false });
         viewport.addEventListener('dblclick', function (event) {
+            if (staticView) {
+                return;
+            }
             changeZoom(transform.scale * 1.65, event.clientX, event.clientY);
         });
 
@@ -1800,6 +1876,9 @@
         viewport.addEventListener('pointerleave', hideProbe);
 
         viewport.addEventListener('pointerdown', function (event) {
+            if (staticView) {
+                return;
+            }
             if (event.target.closest('button, .hmap-diagram-popup, .hmap-probe-pinned')) {
                 return;
             }
@@ -1887,6 +1966,9 @@
 
         if (!animationEnabled || reducedMotion) {
             playButton.hidden = true;
+            if (speedSelect) {
+                speedSelect.hidden = true;
+            }
         }
         if (!baseUrl) {
             showError('Adresse des données HARMONIE non configurée.');

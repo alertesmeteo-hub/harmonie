@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.10.0
+Stable tag: 2.12.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,6 +30,25 @@ Exemple limité à une seule ville, sans champ de recherche :
 `[harmonie_table code="66136" departement="66" ville="Perpignan" heures="48" selecteur="non"]`
 
 == Changelog ==
+
+= 2.12.0 =
+* Correctif : la carte était bridée à une largeur fixe bien plus petite que son conteneur (« --hmap-height » trop faible) — élargie.
+* Nouveau sélecteur de vitesse (×0,5 / ×1 / ×2 / ×4) à côté du bouton de lecture automatique.
+* Trois nouvelles couches carte, déjà calculées par le pipeline mais pas encore exposées : point de rosée à 2 m, température à 850 hPa, visibilité.
+* Les noms de communes et les frontières départementales sur la carte nécessitent que le pipeline (`scripts/`) mis à jour soit poussé sur le dépôt GitHub et qu'un nouveau run de l'Action ait eu lieu — pas un correctif du plugin lui-même.
+* Le GIF animé reste hors périmètre de cette version (prévu dans un lot séparé).
+
+= 2.11.0 =
+* Carte : nouveau bouton « Vue PNG » qui verrouille le zoom/pan pour une lecture ou une capture propre (titre et légende déjà visibles en permanence) ; « Zoom interactif » ramène au mode pannable/zoomable.
+* Nouveau bouton « Copier la vue » (presse-papiers) à côté de « Capture PNG ».
+* Le bouton qui révélait les outils avancés (Capture PNG / Figer la valeur) a été renommé « Outils avancés » pour ne plus se confondre avec le nouveau bouton Zoom interactif / Vue PNG.
+
+= 2.10.2 =
+* Correctif : le niveau de zoom maximum de la carte (hérité du module AROME, grille 1,3 km) était bien trop poussé pour la résolution native HARMONIE (5,5 km) et rendait l'image floue/illisible en zoom avant. Zoom maximum réduit en conséquence.
+
+= 2.10.1 =
+* Correctif : la carte restait noire car son rendu (WebGL) était calculé une seule fois, pendant que l'onglet Carte était encore masqué (dimensions nulles). L'activation de l'onglet déclenche maintenant un nouveau rendu.
+* Les étiquettes de communes sur la carte nécessitent la publication de `maps/places.json` par le pipeline (voir le dépôt `scripts/`).
 
 = 2.10.0 =
 * Nouvel onglet « Carte » : cartes météo HARMONIE interactives (température, précipitations, neige, vent, rafales, pression, nébulosité, humidité) avec zoom/pan, diagramme au clic et capture PNG — même moteur que le module AROME.

@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.10.0
+ * Version: 2.12.0
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.10.0');
+define('HKW_VERSION', '2.12.0');
 define('HKW_RELEASE_DATE', '2026-08-23');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
@@ -457,8 +457,10 @@ function hkw_render_shortcode($atts) {
                 data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
                 data-animation="1"
                 data-module-version="<?php echo esc_attr(HKW_VERSION); ?>"
-                style="--hmap-height: 560px"
+                style="--hmap-height: 760px"
             >
+                <p class="hkw-meta" data-hmap-run>Chargement du dernier run HARMONIE…</p>
+
                 <div class="hmap-toolbar">
                     <div class="hmap-field hmap-layer-picker">
                         <span>Paramètre</span>
@@ -480,7 +482,7 @@ function hkw_render_shortcode($atts) {
                             data-hmap-tool="zoom"
                             aria-pressed="false"
                             title="Afficher les outils de capture et d’épinglage"
-                        >🔍 Zoom interactif</button>
+                        >🔧 Outils avancés</button>
                         <button
                             type="button"
                             class="hmap-tool-toggle"
@@ -488,11 +490,24 @@ function hkw_render_shortcode($atts) {
                             aria-pressed="false"
                             title="Cliquer sur la carte pour afficher le diagramme d’un point"
                         >📈 Diagramme</button>
+                        <button
+                            type="button"
+                            class="hmap-tool-toggle"
+                            data-hmap-view-toggle
+                            aria-pressed="false"
+                            title="Basculer entre carte interactive et vue statique"
+                        >🖼️ Vue PNG</button>
                     </div>
                     <div class="hmap-time-controls" aria-label="Navigation dans les échéances">
                         <button type="button" data-hmap-previous title="Échéance précédente" aria-label="Échéance précédente">◀</button>
                         <button type="button" data-hmap-play title="Lancer l’animation" aria-label="Lancer l’animation">▶</button>
                         <button type="button" data-hmap-next title="Échéance suivante" aria-label="Échéance suivante">▶</button>
+                        <select class="hmap-speed" data-hmap-speed title="Vitesse de l’animation" aria-label="Vitesse de l’animation">
+                            <option value="0.5">×0,5</option>
+                            <option value="1" selected>×1</option>
+                            <option value="2">×2</option>
+                            <option value="4">×4</option>
+                        </select>
                     </div>
                     <div class="hmap-validity">
                         <span>Prévision valable</span>
@@ -547,6 +562,7 @@ function hkw_render_shortcode($atts) {
                     </div>
                     <div class="hmap-advanced-tools" data-hmap-advanced-tools hidden aria-label="Outils avancés">
                         <button type="button" data-hmap-capture title="Capturer l’image affichée" aria-label="Capturer l’image affichée">📷 Capture PNG</button>
+                        <button type="button" data-hmap-copy title="Copier la vue dans le presse-papiers" aria-label="Copier la vue dans le presse-papiers">📋 Copier la vue</button>
                         <button type="button" data-hmap-pin title="Épingler la valeur au clic" aria-label="Épingler la valeur au clic" aria-pressed="false">📌 Figer la valeur</button>
                     </div>
                     <div class="hmap-diagram-popup" data-hmap-diagram-popup hidden>
