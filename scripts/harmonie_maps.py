@@ -37,11 +37,12 @@ MODULE_VERSION = "1.0.0"
 PROBE_DOWNSAMPLE = 2
 PROBE_MAGIC = b"HMV1"
 CONTOUR_STEPS = {
-    "temperature_c": 1.0,
-    "temperature_max_c": 1.0,
-    "temperature_min_c": 1.0,
-    "wind_chill_c": 1.0,
-    "dewpoint_c": 1.0,
+    "temperature_c": 2.0,
+    "temperature_max_c": 2.0,
+    "temperature_min_c": 2.0,
+    "wind_chill_c": 2.0,
+    "dewpoint_c": 2.0,
+    "temperature_850_c": 2.0,
     "wind_speed_kmh": 5.0,
     "wind_gust_kmh": 5.0,
     "gust_max_kmh": 5.0,
@@ -129,6 +130,49 @@ class LayerSpec:
     discrete: bool = False
 
 
+def _interpolate_hex(low_hex: str, high_hex: str, fraction: float) -> str:
+    low = tuple(int(low_hex[index : index + 2], 16) for index in (1, 3, 5))
+    high = tuple(int(high_hex[index : index + 2], 16) for index in (1, 3, 5))
+    mixed = tuple(
+        round(low[channel] + (high[channel] - low[channel]) * fraction)
+        for channel in range(3)
+    )
+    return "#%02x%02x%02x" % mixed
+
+
+def _dense_stops(
+    base_stops: tuple[tuple[float, str], ...], step: float
+) -> tuple[tuple[float, str], ...]:
+    """Interpole une palette continue en paliers réguliers rapprochés.
+
+    Sert à obtenir des bandes de couleur nettes tous les ``step`` degrés
+    (ou toute autre unité) plutôt qu'un dégradage lisse entre quelques
+    couleurs éloignées — même palette générale, juste plus lisible en
+    aplats successifs.
+    """
+
+    values = [value for value, _ in base_stops]
+    lowest, highest = values[0], values[-1]
+    count = int(round((highest - lowest) / step)) + 1
+    stops: list[tuple[float, str]] = []
+    for index in range(count):
+        value = lowest + index * step
+        segment = 0
+        while segment < len(values) - 2 and value > values[segment + 1]:
+            segment += 1
+        segment_low, segment_high = values[segment], values[segment + 1]
+        fraction = (
+            0.0
+            if segment_high == segment_low
+            else (value - segment_low) / (segment_high - segment_low)
+        )
+        colour = _interpolate_hex(
+            base_stops[segment][1], base_stops[segment + 1][1], fraction
+        )
+        stops.append((round(value, 1), colour))
+    return tuple(stops)
+
+
 PRECIPITATION_STOPS = (
     (0.1, "#f5f5f7"),
     (1, "#c9e6ff"),
@@ -148,6 +192,14 @@ PRECIPITATION_STOPS = (
     (80, "#ef0054"),
     (90, "#d000a7"),
     (100, "#a000e8"),
+    (125, "#6900dc"),
+    (150, "#4b00b4"),
+    (175, "#291078"),
+    (200, "#661070"),
+    (250, "#a548bd"),
+    (300, "#d487e1"),
+    (400, "#f0c8f2"),
+    (500, "#ffffff"),
 )
 
 
@@ -157,105 +209,129 @@ LAYER_SPECS = (
         "Température à 2 m",
         "°C",
         "temperature_c",
-        (
-            (-25, "#482173"),
-            (-15, "#303fa5"),
-            (-5, "#3478c5"),
-            (0, "#55b7dd"),
-            (5, "#53c6a8"),
-            (10, "#70cf66"),
-            (15, "#cbd83f"),
-            (20, "#f2d43d"),
-            (25, "#f2a331"),
-            (30, "#ea652b"),
-            (35, "#d93435"),
-            (40, "#a71f57"),
-            (45, "#5b1037"),
+        _dense_stops(
+            (
+                (-25, "#482173"),
+                (-15, "#303fa5"),
+                (-5, "#3478c5"),
+                (0, "#55b7dd"),
+                (5, "#53c6a8"),
+                (10, "#70cf66"),
+                (15, "#cbd83f"),
+                (20, "#f2d43d"),
+                (25, "#f2a331"),
+                (30, "#ea652b"),
+                (35, "#d93435"),
+                (40, "#a71f57"),
+                (45, "#5b1037"),
+            ),
+            2.0,
         ),
         group="Températures",
         decimals=1,
+        discrete=True,
     ),
     LayerSpec(
         "temperature_max",
         "Température maximale (période)",
         "°C",
         "temperature_max_c",
-        (
-            (-25, "#482173"), (-15, "#303fa5"), (-5, "#3478c5"),
-            (0, "#55b7dd"), (5, "#53c6a8"), (10, "#70cf66"),
-            (15, "#cbd83f"), (20, "#f2d43d"), (25, "#f2a331"),
-            (30, "#ea652b"), (35, "#d93435"), (40, "#a71f57"),
-            (45, "#5b1037"),
+        _dense_stops(
+            (
+                (-25, "#482173"), (-15, "#303fa5"), (-5, "#3478c5"),
+                (0, "#55b7dd"), (5, "#53c6a8"), (10, "#70cf66"),
+                (15, "#cbd83f"), (20, "#f2d43d"), (25, "#f2a331"),
+                (30, "#ea652b"), (35, "#d93435"), (40, "#a71f57"),
+                (45, "#5b1037"),
+            ),
+            2.0,
         ),
         group="Températures",
         decimals=1,
+        discrete=True,
     ),
     LayerSpec(
         "temperature_min",
         "Température minimale (période)",
         "°C",
         "temperature_min_c",
-        (
-            (-25, "#482173"), (-15, "#303fa5"), (-5, "#3478c5"),
-            (0, "#55b7dd"), (5, "#53c6a8"), (10, "#70cf66"),
-            (15, "#cbd83f"), (20, "#f2d43d"), (25, "#f2a331"),
-            (30, "#ea652b"), (35, "#d93435"), (40, "#a71f57"),
-            (45, "#5b1037"),
+        _dense_stops(
+            (
+                (-25, "#482173"), (-15, "#303fa5"), (-5, "#3478c5"),
+                (0, "#55b7dd"), (5, "#53c6a8"), (10, "#70cf66"),
+                (15, "#cbd83f"), (20, "#f2d43d"), (25, "#f2a331"),
+                (30, "#ea652b"), (35, "#d93435"), (40, "#a71f57"),
+                (45, "#5b1037"),
+            ),
+            2.0,
         ),
         group="Températures",
         decimals=1,
+        discrete=True,
     ),
     LayerSpec(
         "refroidissement_eolien",
         "Refroidissement éolien",
         "°C",
         "wind_chill_c",
-        (
-            (-35, "#27145d"),
-            (-25, "#482173"),
-            (-15, "#303fa5"),
-            (-5, "#3478c5"),
-            (0, "#55b7dd"),
-            (5, "#53c6a8"),
-            (10, "#70cf66"),
-            (15, "#cbd83f"),
-            (20, "#f2d43d"),
+        _dense_stops(
+            (
+                (-35, "#27145d"),
+                (-25, "#482173"),
+                (-15, "#303fa5"),
+                (-5, "#3478c5"),
+                (0, "#55b7dd"),
+                (5, "#53c6a8"),
+                (10, "#70cf66"),
+                (15, "#cbd83f"),
+                (20, "#f2d43d"),
+            ),
+            2.0,
         ),
         group="Températures",
         decimals=1,
+        discrete=True,
     ),
     LayerSpec(
         "point_rosee",
         "Point de rosée à 2 m",
         "°C",
         "dewpoint_c",
-        (
-            (-25, "#57336f"),
-            (-15, "#3855a3"),
-            (-5, "#398bca"),
-            (0, "#56b7d8"),
-            (5, "#58c8a2"),
-            (10, "#79cf68"),
-            (15, "#d5d64a"),
-            (20, "#f0a83b"),
-            (25, "#df5d3c"),
-            (30, "#9f2955"),
+        _dense_stops(
+            (
+                (-25, "#57336f"),
+                (-15, "#3855a3"),
+                (-5, "#398bca"),
+                (0, "#56b7d8"),
+                (5, "#58c8a2"),
+                (10, "#79cf68"),
+                (15, "#d5d64a"),
+                (20, "#f0a83b"),
+                (25, "#df5d3c"),
+                (30, "#9f2955"),
+            ),
+            2.0,
         ),
         group="Températures",
         decimals=1,
+        discrete=True,
     ),
     LayerSpec(
         "temperature_850",
         "Température à 850 hPa",
         "°C",
         "temperature_850_c",
-        (
-            (-40, "#321253"), (-30, "#423c9c"), (-20, "#326eb7"),
-            (-10, "#3da6cf"), (0, "#5ac7ad"), (10, "#bcd84e"),
-            (20, "#f0a33a"), (30, "#d6403e"), (40, "#701d4c"),
+        _dense_stops(
+            (
+                (-40, "#321253"), (-30, "#423c9c"), (-20, "#326eb7"),
+                (-10, "#3da6cf"), (0, "#5ac7ad"), (10, "#bcd84e"),
+                (20, "#f0a33a"), (30, "#d6403e"), (40, "#701d4c"),
+            ),
+            2.0,
         ),
         group="Températures",
         decimals=1,
+        discrete=True,
     ),
     LayerSpec(
         "visibilite",
@@ -343,52 +419,64 @@ LAYER_SPECS = (
         "Vent moyen à 10 m",
         "km/h",
         "wind_speed_kmh",
-        (
-            (0, "#eef7ea"),
-            (10, "#a7db8d"),
-            (20, "#5cc27d"),
-            (30, "#38aaa5"),
-            (40, "#347cc3"),
-            (50, "#6558b8"),
-            (60, "#a43e94"),
-            (80, "#d63c57"),
-            (100, "#7e1736"),
+        _dense_stops(
+            (
+                (0, "#eef7ea"),
+                (10, "#a7db8d"),
+                (20, "#5cc27d"),
+                (30, "#38aaa5"),
+                (40, "#347cc3"),
+                (50, "#6558b8"),
+                (60, "#a43e94"),
+                (80, "#d63c57"),
+                (100, "#7e1736"),
+            ),
+            5.0,
         ),
         group="Vent",
+        discrete=True,
     ),
     LayerSpec(
         "rafales",
         "Rafales à 10 m",
         "km/h",
         "wind_gust_kmh",
-        (
-            (0, "#edf7e8"),
-            (20, "#a9d77d"),
-            (40, "#f0cf46"),
-            (60, "#ef8b2c"),
-            (80, "#db3d3d"),
-            (100, "#9e235d"),
-            (130, "#4d1647"),
-            (160, "#25152e"),
+        _dense_stops(
+            (
+                (0, "#edf7e8"),
+                (20, "#a9d77d"),
+                (40, "#f0cf46"),
+                (60, "#ef8b2c"),
+                (80, "#db3d3d"),
+                (100, "#9e235d"),
+                (130, "#4d1647"),
+                (160, "#25152e"),
+            ),
+            5.0,
         ),
         group="Vent",
+        discrete=True,
     ),
     LayerSpec(
         "rafale_max",
         "Rafale maximale (période)",
         "km/h",
         "gust_max_kmh",
-        (
-            (0, "#edf7e8"),
-            (20, "#a9d77d"),
-            (40, "#f0cf46"),
-            (60, "#ef8b2c"),
-            (80, "#db3d3d"),
-            (100, "#9e235d"),
-            (130, "#4d1647"),
-            (160, "#25152e"),
+        _dense_stops(
+            (
+                (0, "#edf7e8"),
+                (20, "#a9d77d"),
+                (40, "#f0cf46"),
+                (60, "#ef8b2c"),
+                (80, "#db3d3d"),
+                (100, "#9e235d"),
+                (130, "#4d1647"),
+                (160, "#25152e"),
+            ),
+            5.0,
         ),
         group="Vent",
+        discrete=True,
     ),
     LayerSpec(
         "pression",
@@ -823,8 +911,8 @@ class HarmonieMapRenderer:
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.width} '
             f'{self.height}" preserveAspectRatio="none" '
             'shape-rendering="geometricPrecision">\n'
-            f'<path d="{department_path}" fill="none" stroke="#20242b" '
-            'stroke-opacity="0.58" stroke-width="0.8" '
+            f'<path d="{department_path}" fill="none" stroke="#3a4a5a" '
+            'stroke-opacity="0.75" stroke-width="1.3" stroke-linejoin="round" '
             'vector-effect="non-scaling-stroke"/>\n'
             f'<path d="{national_path}" fill="none" stroke="#111116" '
             'stroke-width="1.45" stroke-linejoin="round" stroke-linecap="round" '
