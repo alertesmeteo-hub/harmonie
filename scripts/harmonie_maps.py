@@ -30,7 +30,7 @@ from scipy.spatial import cKDTree
 
 
 MAP_SCHEMA_VERSION = 1
-MODULE_VERSION = "1.0.2"
+MODULE_VERSION = "1.0.4"
 # Une valeur numérique tous les deux pixels cartographiques : le survol reste
 # précis à l'échelle d'une commune sans multiplier déraisonnablement le poids
 # de la branche de données.
@@ -754,24 +754,6 @@ class HarmonieMapRenderer:
                 stop_colours[lower] * (1.0 - fraction[..., None])
                 + stop_colours[upper] * fraction[..., None]
             ).astype(np.uint8)
-
-        # Ligne de démarcation à chaque changement de palier, pour que les
-        # bandes restent lisibles même à faible contraste de teinte entre
-        # paliers voisins (demande explicite : « encore plus de
-        # démarcation »). Deux pixels de large (le pixel de chaque côté de
-        # la frontière est marqué), assombri plutôt que recoloré pour
-        # rester cohérent avec la teinte locale.
-        edge = np.zeros(field.shape, dtype=bool)
-        edge[:, 1:] |= lower[:, 1:] != lower[:, :-1]
-        edge[:, :-1] |= lower[:, 1:] != lower[:, :-1]
-        edge[1:, :] |= lower[1:, :] != lower[:-1, :]
-        edge[:-1, :] |= lower[1:, :] != lower[:-1, :]
-        rgb = np.where(
-            edge[..., None],
-            (rgb.astype(np.float32) * 0.5).astype(np.uint8),
-            rgb,
-        )
-
         alpha = np.full(field.shape, spec.opacity, dtype=np.uint8)
         valid = self._coverage_mask & finite_field
         if spec.transparent_below is not None:
@@ -934,7 +916,13 @@ class HarmonieMapRenderer:
             file_stem = f"{lead_hour:03d}"
             destination = destination_directory / f"{file_stem}.webp"
             image = self._image_from_field(field, spec)
-            image.save(destination, "WEBP", quality=86, method=5)
+            # Sans perte : les couches sont quantifiées par paliers nets
+            # (peu de couleurs distinctes), exactement le cas où la
+            # compression WebP avec perte lisse le plus les frontières —
+            # elle est pensée pour des photos, pas des aplats à bords nets,
+            # et rendait les paliers de couleur imperceptibles (« lissage »
+            # signalé par l'utilisateur alors que le calcul est correct).
+            image.save(destination, "WEBP", lossless=True, method=4)
             files[spec.key] = f"maps/{spec.key}/{destination.name}"
             probe_destination = (
                 self.output_directory
