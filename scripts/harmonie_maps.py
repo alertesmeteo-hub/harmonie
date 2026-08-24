@@ -30,7 +30,7 @@ from scipy.spatial import cKDTree
 
 
 MAP_SCHEMA_VERSION = 1
-MODULE_VERSION = "1.0.1"
+MODULE_VERSION = "1.0.2"
 # Une valeur numérique tous les deux pixels cartographiques : le survol reste
 # précis à l'échelle d'une commune sans multiplier déraisonnablement le poids
 # de la branche de données.
@@ -754,6 +754,24 @@ class HarmonieMapRenderer:
                 stop_colours[lower] * (1.0 - fraction[..., None])
                 + stop_colours[upper] * fraction[..., None]
             ).astype(np.uint8)
+
+        # Ligne de démarcation à chaque changement de palier, pour que les
+        # bandes restent lisibles même à faible contraste de teinte entre
+        # paliers voisins (demande explicite : « encore plus de
+        # démarcation »). Deux pixels de large (le pixel de chaque côté de
+        # la frontière est marqué), assombri plutôt que recoloré pour
+        # rester cohérent avec la teinte locale.
+        edge = np.zeros(field.shape, dtype=bool)
+        edge[:, 1:] |= lower[:, 1:] != lower[:, :-1]
+        edge[:, :-1] |= lower[:, 1:] != lower[:, :-1]
+        edge[1:, :] |= lower[1:, :] != lower[:-1, :]
+        edge[:-1, :] |= lower[1:, :] != lower[:-1, :]
+        rgb = np.where(
+            edge[..., None],
+            (rgb.astype(np.float32) * 0.5).astype(np.uint8),
+            rgb,
+        )
+
         alpha = np.full(field.shape, spec.opacity, dtype=np.uint8)
         valid = self._coverage_mask & finite_field
         if spec.transparent_below is not None:
