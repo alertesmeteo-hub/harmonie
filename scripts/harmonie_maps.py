@@ -22,7 +22,7 @@ import struct
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -114,6 +114,33 @@ def _iter_shapefile_parts(path: Path):
                     struct.unpack_from("<2d", content, points_offset + index * 16)
                     for index in range(start, end)
                 ]
+
+
+def _iter_geojson_polygon_rings(path: Path):
+    """Lit les anneaux extérieurs des polygones/multipolygones d'un GeoJSON.
+
+    Utilisé pour les contours départementaux (source IGN Admin Express via
+    data.gouv.fr, licence ouverte Etalab) — des vrais tracés vectoriels,
+    contrairement aux frontières déduites pixel par pixel de la grille
+    météo, qui produisent un effet d'escalier impossible à totalement
+    lisser même en augmentant la résolution du raster.
+    """
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    for feature in payload.get("features", []):
+        geometry = feature.get("geometry") or {}
+        geometry_type = geometry.get("type")
+        coordinates = geometry.get("coordinates") or []
+        if geometry_type == "Polygon":
+            polygons = [coordinates]
+        elif geometry_type == "MultiPolygon":
+            polygons = coordinates
+        else:
+            continue
+        for polygon in polygons:
+            if polygon:
+                yield polygon[0]
 
 
 @dataclass(frozen=True)
@@ -602,10 +629,8 @@ class HarmonieMapRenderer:
         height: int = 1200,
         bounds: dict[str, float] | None = None,
         source_max_distance: float = 0.22,
-        france_latitudes: np.ndarray | None = None,
-        france_longitudes: np.ndarray | None = None,
-        france_departments: Sequence[str] | None = None,
         boundary_directory: Path | None = None,
+        department_boundary_path: Path | None = None,
     ) -> None:
         self.latitudes = np.asarray(latitudes, dtype=np.float64)
         self.longitudes = np.asarray(longitudes, dtype=np.float64)
@@ -623,18 +648,10 @@ class HarmonieMapRenderer:
         self.boundary_directory = (
             Path(boundary_directory) if boundary_directory is not None else None
         )
-        self.france_latitudes = (
-            np.asarray(france_latitudes, dtype=np.float64)
-            if france_latitudes is not None
+        self.department_boundary_path = (
+            Path(department_boundary_path)
+            if department_boundary_path is not None
             else None
-        )
-        self.france_longitudes = (
-            np.asarray(france_longitudes, dtype=np.float64)
-            if france_longitudes is not None
-            else None
-        )
-        self.france_departments = (
-            list(france_departments) if france_departments is not None else None
         )
         self.steps: list[dict[str, Any]] = []
         self.available_layers: set[str] = set()
@@ -800,15 +817,13 @@ class HarmonieMapRenderer:
         y *= self.height - 1
         return int(round(x)), int(round(y))
 
-    def _shapefile_svg_path(self, path: Path) -> str:
-        if not path.is_file():
-            return ""
+    def _points_svg_path(self, parts) -> str:
         south = float(self.bounds["south"]) - 1
         north = float(self.bounds["north"]) + 1
         west = float(self.bounds["west"]) - 1
         east = float(self.bounds["east"]) + 1
         paths: list[str] = []
-        for points in _iter_shapefile_parts(path):
+        for points in parts:
             segment: list[tuple[float, float]] = []
             for longitude, latitude in points:
                 if west <= longitude <= east and south <= latitude <= north:
@@ -827,70 +842,15 @@ class HarmonieMapRenderer:
                 )
         return " ".join(paths)
 
-    @staticmethod
-    def _true_runs(mask: np.ndarray):
-        padded = np.concatenate(
-            (np.asarray([False]), np.asarray(mask, dtype=bool), np.asarray([False]))
-        )
-        changes = np.flatnonzero(padded[1:] != padded[:-1])
-        return zip(changes[::2], changes[1::2])
-
-    def _department_svg_path(self) -> str:
-        if (
-            self.france_latitudes is None
-            or self.france_longitudes is None
-            or self.france_departments is None
-            or len(self.france_departments) != len(self.france_latitudes)
-        ):
+    def _shapefile_svg_path(self, path: Path) -> str:
+        if not path.is_file():
             return ""
+        return self._points_svg_path(_iter_shapefile_parts(path))
 
-        source = np.column_stack(
-            (
-                self.france_longitudes * self._longitude_scale,
-                self.france_latitudes,
-            )
-        )
-        target = np.column_stack(
-            (
-                self._target_longitudes.ravel() * self._longitude_scale,
-                self._target_latitudes.ravel(),
-            )
-        )
-        distances, indexes = cKDTree(source).query(target, k=1, workers=-1)
-        codes = {
-            code: index + 1
-            for index, code in enumerate(sorted(set(self.france_departments)))
-        }
-        encoded = np.asarray(
-            [codes.get(code, 0) for code in self.france_departments]
-        )
-        departments = encoded[indexes].reshape(self.height, self.width)
-        france = distances.reshape(self.height, self.width) <= 0.18
-
-        changes_between_columns = (
-            france[:, 1:]
-            & france[:, :-1]
-            & (departments[:, 1:] != departments[:, :-1])
-        )
-        changes_between_rows = (
-            france[1:, :]
-            & france[:-1, :]
-            & (departments[1:, :] != departments[:-1, :])
-        )
-        paths: list[str] = []
-        for x in range(changes_between_columns.shape[1]):
-            for start, end in self._true_runs(changes_between_columns[:, x]):
-                coordinate = x + 0.5
-                paths.append(
-                    f"M{coordinate:.1f},{start:.1f} L{coordinate:.1f},{end:.1f}"
-                )
-        for y in range(changes_between_rows.shape[0]):
-            for start, end in self._true_runs(changes_between_rows[y, :]):
-                coordinate = y + 0.5
-                paths.append(
-                    f"M{start:.1f},{coordinate:.1f} L{end:.1f},{coordinate:.1f}"
-                )
-        return " ".join(paths)
+    def _department_boundary_svg_path(self, path: Path) -> str:
+        if not path.is_file():
+            return ""
+        return self._points_svg_path(_iter_geojson_polygon_rings(path))
 
     def _write_static_maps(self) -> None:
         base = Image.new("RGB", (self.width, self.height), "#a5a6b0")
@@ -905,7 +865,11 @@ class HarmonieMapRenderer:
             coastline_path = self._shapefile_svg_path(
                 self.boundary_directory / "ne_50m_coastline.shp",
             )
-        department_path = self._department_svg_path()
+        department_path = (
+            self._department_boundary_svg_path(self.department_boundary_path)
+            if self.department_boundary_path is not None
+            else ""
+        )
         svg = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {self.width} '

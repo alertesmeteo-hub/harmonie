@@ -37,8 +37,8 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 LOGGER = logging.getLogger("harmonie.france")
 NATIONAL_PIPELINE_VERSION = "2.7.0"
-MAP_WIDTH = 1600
-MAP_HEIGHT = 1200
+MAP_WIDTH = 2000
+MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
 MAP_FIELDS = {
     "temperature_c",
@@ -1534,10 +1534,6 @@ def decode_national_archive(
     map_renderer: HarmonieMapRenderer | None = None
     temporary_grib = working_directory / "current.grib"
 
-    point_departments = np.empty(len(catalog.model_indexes), dtype=object)
-    for code, department in catalog.departments.items():
-        point_departments[department.global_point_ids] = code
-
     try:
         with tarfile.open(archive, mode="r:*") as tar:
             for position, (lead, run, member) in enumerate(members, start=1):
@@ -1601,13 +1597,15 @@ def decode_national_archive(
                         width=MAP_WIDTH,
                         height=MAP_HEIGHT,
                         bounds=DEFAULT_BOUNDS,
-                        france_latitudes=catalog.point_latitudes,
-                        france_longitudes=catalog.point_longitudes,
-                        france_departments=point_departments,
                         boundary_directory=(
                             Path(__file__).resolve().parents[1]
                             / "config"
                             / "natural-earth"
+                        ),
+                        department_boundary_path=(
+                            Path(__file__).resolve().parents[1]
+                            / "config"
+                            / "departements-france.geojson"
                         ),
                     )
                 map_renderer.render_step(

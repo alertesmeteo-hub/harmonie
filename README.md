@@ -41,6 +41,7 @@ config/communes-france.json             Catalogue communal + grille HARMONIE
 scripts/update_harmonie.py              Décodage GRIB / accès KNMI (base)
 scripts/update_harmonie_france.py       Pipeline national (toutes communes)
 scripts/harmonie_maps.py                Rendu des cartes (grille native → Web Mercator)
-config/natural-earth/                   Côtes et frontières (overlay des cartes)
+config/natural-earth/                   Côtes et frontières nationales (overlay des cartes)
+config/departements-france.geojson      Contours départementaux (IGN Admin Express, licence ouverte Etalab)
 wordpress/harmonie-knmi-widget/         Plugin WordPress (shortcode + carte)
 ```
