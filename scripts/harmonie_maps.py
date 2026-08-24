@@ -30,7 +30,7 @@ from scipy.spatial import cKDTree
 
 
 MAP_SCHEMA_VERSION = 1
-MODULE_VERSION = "1.0.0"
+MODULE_VERSION = "1.0.1"
 # Une valeur numérique tous les deux pixels cartographiques : le survol reste
 # précis à l'échelle d'une commune sans multiplier déraisonnablement le poids
 # de la branche de données.
@@ -158,10 +158,11 @@ class LayerSpec:
 
 
 def _interpolate_hex(low_hex: str, high_hex: str, fraction: float) -> str:
+    fraction = min(1.0, max(0.0, fraction))
     low = tuple(int(low_hex[index : index + 2], 16) for index in (1, 3, 5))
     high = tuple(int(high_hex[index : index + 2], 16) for index in (1, 3, 5))
     mixed = tuple(
-        round(low[channel] + (high[channel] - low[channel]) * fraction)
+        min(255, max(0, round(low[channel] + (high[channel] - low[channel]) * fraction)))
         for channel in range(3)
     )
     return "#%02x%02x%02x" % mixed
@@ -183,7 +184,12 @@ def _dense_stops(
     count = int(round((highest - lowest) / step)) + 1
     stops: list[tuple[float, str]] = []
     for index in range(count):
-        value = lowest + index * step
+        # `round()` sur le nombre de paliers peut placer le dernier palier
+        # légèrement au-delà (ou en-deçà) de la palette d'origine, ce qui
+        # fait extrapoler `_interpolate_hex` hors de [0,1] et produire des
+        # canaux RVB hors [0,255] — d'où un hex invalide en sortie
+        # (« f-... ») et un plantage du pipeline. On reste dans les bornes.
+        value = min(highest, max(lowest, lowest + index * step))
         segment = 0
         while segment < len(values) - 2 and value > values[segment + 1]:
             segment += 1
