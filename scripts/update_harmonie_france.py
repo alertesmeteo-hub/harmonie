@@ -36,7 +36,7 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "3.0.1"
+NATIONAL_PIPELINE_VERSION = "3.0.2"
 MAP_WIDTH = 2000
 MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
@@ -1160,15 +1160,32 @@ def transform_step(
     hail_diameter_cm[hail_points >= 4] = 2.0
     hail_diameter_cm[hail_points >= 6] = 4.0
 
-    convective_precip_1h = convective_precipitation
+    # convective_precipitation_raw_mm (« acpcp »/« cp ») s'est révélé absent
+    # du paquet KNMI P3 actuellement téléchargé (constaté en production :
+    # 0 valeur non nulle sur des dizaines de milliers de points/heures,
+    # sur plusieurs départements) — on retombe sur la pluie totale horaire
+    # (``precipitation``, déjà correctement désaccumulée, elle) comme signal
+    # de précipitation pour Orages, en attendant que ce champ soit
+    # disponible. Pendant un vrai orage, la pluie convective domine
+    # largement la pluie totale, donc cette pluie totale reste un proxy
+    # raisonnable.
+    convective_precip_1h = np.where(
+        np.isfinite(convective_precipitation), convective_precipitation, precipitation
+    )
 
     # Règle 1 — déclenchement impératif : sans instabilité minimale ET sans
-    # signal de précipitation convective ou de foudre, niveau 0 quel que
-    # soit le reste (CAPE/K-index mesurent un potentiel, pas si l'orage se
-    # déclenche réellement — constaté en production : 0,0 mm de
-    # précipitations classées « Extrême » avant ce correctif).
-    precip_signal = np.isfinite(convective_precip_1h) & (convective_precip_1h >= 0.5)
-    lightning_signal = lightning_score >= 20.0
+    # pluie mesurable ni signal de foudre marqué, niveau 0 quel que soit le
+    # reste (CAPE/K-index mesurent un potentiel, pas si l'orage se déclenche
+    # réellement — constaté en production : département de montagne classé
+    # « Faible » un jour sans une goutte de pluie, uniquement parce que la
+    # CAPE seule suffisait à faire dépasser 20 à lightning_score, faute de
+    # signal de pluie disponible pour corriger le tir). Le seuil de
+    # lightning_score est relevé à 50 : la CAPE seule plafonne à 35 points
+    # dans ce score (cape/40, borné), donc franchir 50 exige en plus un
+    # K-index ou un Total-Totals réellement élevés — un vrai air orageux
+    # humide, pas seulement un fort gradient thermique sec de montagne.
+    precip_signal = np.isfinite(convective_precip_1h) & (convective_precip_1h >= 0.2)
+    lightning_signal = lightning_score >= 50.0
     trigger = np.isfinite(cape) & (cape > 100.0) & (precip_signal | lightning_signal)
 
     thunder_risk = np.zeros(len(temperature), dtype=np.int16)
