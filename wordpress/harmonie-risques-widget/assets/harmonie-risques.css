@@ -206,7 +206,7 @@
 
 .hrw-body {
     display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+    grid-template-columns: minmax(0, 2.6fr) minmax(220px, 1fr);
     gap: 0;
 }
 
@@ -353,6 +353,21 @@
     min-width: 1px;
 }
 
+.hrw-tooltip-frise-labels {
+    display: flex;
+    width: 180px;
+    margin-top: 2px;
+}
+
+.hrw-tooltip-frise-labels span {
+    flex: 1 1 0;
+    min-width: 1px;
+    text-align: center;
+    font-size: .62rem;
+    color: var(--hrw-muted);
+    white-space: nowrap;
+}
+
 .hrw-map-loading {
     position: absolute;
     inset: 0;
@@ -407,7 +422,7 @@
 }
 
 .hrw-detail {
-    padding: 20px;
+    padding: 12px;
     min-height: 320px;
 }
 
@@ -424,14 +439,14 @@
 
 .hrw-detail-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
-    margin: 14px 0;
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 6px;
+    margin: 10px 0;
 }
 
 .hrw-hazard-cell {
-    padding: 10px;
-    border-radius: 10px;
+    padding: 7px;
+    border-radius: 8px;
     background: var(--hrw-panel);
     border: 1px solid var(--hrw-border);
     cursor: pointer;
@@ -444,23 +459,23 @@
 .hrw-hazard-cell .hrw-hazard-name {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: .74rem;
+    gap: 4px;
+    font-size: .68rem;
     color: var(--hrw-muted);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .hrw-hazard-cell .hrw-hazard-icon {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     flex: none;
 }
 
 .hrw-hazard-cell .hrw-hazard-level {
     display: inline-block;
-    padding: 3px 8px;
-    border-radius: 6px;
-    font-size: .78rem;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: .72rem;
     font-weight: 800;
     color: #1c1f26;
 }
@@ -477,8 +492,8 @@
 
 .hrw-frise-track {
     display: flex;
-    height: 46px;
-    border-radius: 8px;
+    height: 36px;
+    border-radius: 7px;
     overflow: hidden;
     border: 1px solid var(--hrw-border);
 }
@@ -508,10 +523,10 @@
 }
 
 .hrw-advice {
-    margin-top: 18px;
-    padding: 14px;
+    margin-top: 12px;
+    padding: 10px;
     border: 1px solid var(--hrw-border);
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--hrw-panel);
 }
 

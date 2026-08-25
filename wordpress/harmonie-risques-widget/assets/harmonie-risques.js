@@ -654,6 +654,22 @@
                     mini.appendChild(segment);
                 });
                 tooltip.appendChild(mini);
+
+                // Peu de place dans l'info-bulle : seulement 3-4 repères
+                // (premher, dernier, quelques intermédiaires) plutôt que
+                // toutes les 3h comme sur la grande frise.
+                var miniLabels = document.createElement('div');
+                miniLabels.className = 'hrw-tooltip-frise-labels';
+                var miniTickEvery = Math.max(1, Math.ceil(dayHours.length / 4));
+                dayHours.forEach(function (entry, index) {
+                    var tick = document.createElement('span');
+                    var isLast = index === dayHours.length - 1;
+                    if (index === 0 || isLast || index % miniTickEvery === 0) {
+                        tick.textContent = localHourOf(new Date(entry.time)) + 'h';
+                    }
+                    miniLabels.appendChild(tick);
+                });
+                tooltip.appendChild(miniLabels);
             }
 
             positionTooltip(anchorEl);
@@ -761,7 +777,7 @@
                     canvas.width = width;
                     canvas.height = height;
                     var context = canvas.getContext('2d');
-                    context.fillStyle = '#0d0f14';
+                    context.fillStyle = '#ffffff';
                     context.fillRect(0, 0, width, height);
                     context.drawImage(image, 0, 0, width, height);
                     URL.revokeObjectURL(url);
