@@ -36,7 +36,7 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "2.7.0"
+NATIONAL_PIPELINE_VERSION = "2.8.0"
 MAP_WIDTH = 2000
 MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
@@ -1102,17 +1102,32 @@ def transform_step(
     omega_500 = raw["omega_500_pas"].copy()
 
     # Score convectif : CAPE/CIN estimés sur P3 + indices K/TT.
+    #
+    # Recalibré après constat en production (25/08/2026, Ille-et-Vilaine) :
+    # 211/211 communes du département affichaient un thunder_risk_code non
+    # nul par simple air humide + bruine, sans instabilité réelle. Cause :
+    # RH700 et precipitation (précipitation TOTALE, y compris stratiforme)
+    # donnaient jusqu'à 20 points "gratuits" sans aucune contribution de
+    # CAPE/K-index/TT — largement suffisant pour franchir seul le palier
+    # niveau 1 (20 pts). Corrigé en (a) réduisant le poids de l'humidité
+    # RH700 à un seul palier plus élevé, (b) remplaçant la précipitation
+    # totale par la précipitation CONVECTIVE (champ GRIB dédié, ne compte
+    # pas la pluie frontale/stratiforme ordinaire), (c) relevant le seuil
+    # de cisaillement d'entrée. CAPE/K-index/TT restent le moteur principal
+    # du score, inchangés.
     score = np.zeros(len(temperature), dtype=np.float64)
     score += np.where(np.isfinite(cape), np.clip(cape / 50.0, 0.0, 30.0), 0.0)
     score += np.where(np.isfinite(k_index), np.clip((k_index - 15.0) * 1.25, 0.0, 25.0), 0.0)
     score += np.where(np.isfinite(total_totals), np.clip((total_totals - 38.0) * 1.25, 0.0, 20.0), 0.0)
-    score += np.where(np.isfinite(rh_levels[700]) & (rh_levels[700] >= 60.0), 5.0, 0.0)
-    score += np.where(np.isfinite(rh_levels[700]) & (rh_levels[700] >= 75.0), 5.0, 0.0)
-    score += np.where(np.isfinite(precipitation) & (precipitation >= 0.2), 5.0, 0.0)
-    score += np.where(np.isfinite(precipitation) & (precipitation >= 2.0), 5.0, 0.0)
-    score += np.where(np.isfinite(precipitation) & (precipitation >= 5.0), 5.0, 0.0)
-    score += np.where(np.isfinite(shear_0_6) & (shear_0_6 >= 15.0), 5.0, 0.0)
-    score += np.where(np.isfinite(shear_0_6) & (shear_0_6 >= 22.0), 5.0, 0.0)
+    score += np.where(np.isfinite(rh_levels[700]) & (rh_levels[700] >= 70.0), 5.0, 0.0)
+    score += np.where(
+        np.isfinite(convective_precipitation) & (convective_precipitation >= 0.5), 5.0, 0.0
+    )
+    score += np.where(
+        np.isfinite(convective_precipitation) & (convective_precipitation >= 3.0), 5.0, 0.0
+    )
+    score += np.where(np.isfinite(shear_0_6) & (shear_0_6 >= 18.0), 5.0, 0.0)
+    score += np.where(np.isfinite(shear_0_6) & (shear_0_6 >= 25.0), 5.0, 0.0)
     score += np.where(np.isfinite(omega_500) & (omega_500 <= -0.15), 5.0, 0.0)
     score = np.clip(score, 0.0, 100.0)
     thunder_risk = risk_code(score)

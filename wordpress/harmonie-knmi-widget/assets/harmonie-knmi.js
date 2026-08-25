@@ -63,6 +63,65 @@
         }
     }
 
+    // Certains thèmes (Avada/Fusion Builder) placent le shortcode dans une
+    // colonne bien plus étroite que la ligne qui la contient (ex. colonne à
+    // 940px dans une ligne à 1265px). Le widget est volontairement dense
+    // (tableau 10 colonnes, carte) et gagne à sortir de cette colonne plutôt
+    // que de s'y écraser. On mesure les ancêtres réels au lieu de deviner une
+    // largeur fixe, pour rester correct quelle que soit la mise en page.
+    function clearWiden(card) {
+        card.style.width = '';
+        card.style.maxWidth = '';
+        card.style.marginLeft = '';
+        card.style.marginRight = '';
+    }
+
+    function widenToFitAncestor(card) {
+        if (!card) {
+            return;
+        }
+        if (window.innerWidth < 900) {
+            clearWiden(card);
+            return;
+        }
+        var parent = card.parentElement;
+        if (!parent) {
+            return;
+        }
+        // On retire d'abord tout override précédent avant de mesurer : sinon
+        // on mesure un parent dont la largeur peut avoir été faussée par
+        // NOTRE PROPRE élargissement précédent (débordement horizontal,
+        // barre de défilement qui apparaît/disparaît…), ce qui provoquait un
+        // aller-retour rétréci/agrandi en boucle.
+        clearWiden(card);
+        var parentWidth = parent.getBoundingClientRect().width;
+        var widest = parentWidth;
+        var el = parent.parentElement;
+        var hops = 0;
+        while (el && hops < 6) {
+            var rect = el.getBoundingClientRect();
+            if (rect.width > widest) {
+                widest = rect.width;
+            }
+            el = el.parentElement;
+            hops += 1;
+        }
+        // Ne jamais dépasser la largeur réelle de la fenêtre : un
+        // dépassement déclencherait une barre de défilement horizontale,
+        // qui réduirait la largeur mesurée au prochain calcul — la même
+        // boucle infinie par un autre chemin.
+        var viewportLimit = (document.documentElement.clientWidth || window.innerWidth) - 4;
+        var target = Math.min(widest, 1400, viewportLimit);
+        if (target <= parentWidth + 24) {
+            return;
+        }
+        var offset = (target - parentWidth) / 2;
+        card.style.maxWidth = target + 'px';
+        card.style.width = target + 'px';
+        card.style.marginLeft = (-offset) + 'px';
+        card.style.marginRight = (-offset) + 'px';
+    }
+
     function finite(value) {
         return typeof value === 'number' && Number.isFinite(value);
     }
@@ -991,6 +1050,11 @@
             });
         });
 
+        var initialView = app.dataset.initialView || 'general';
+        if (initialView !== 'general') {
+            setActiveView(initialView);
+        }
+
         function putMessage(body, message, error, colspan) {
             if (!body) { return; }
             body.replaceChildren();
@@ -1754,6 +1818,27 @@
             if (!app.contains(event.target)) {
                 closeResults();
             }
+        });
+
+        widenToFitAncestor(app);
+        var widenTimer = null;
+        function scheduleWiden() {
+            window.clearTimeout(widenTimer);
+            widenTimer = window.setTimeout(function () {
+                widenToFitAncestor(app);
+            }, 150);
+        }
+        window.addEventListener('resize', scheduleWiden);
+        // Filet de sécurité borné (pas d'observation continue) : sur
+        // certaines pages, la largeur des conteneurs parents ne se stabilise
+        // qu'après le chargement des polices ou d'un script du thème, sans
+        // qu'aucun évènement "resize" ne se déclenche. Un ResizeObserver
+        // continu sur les ancêtres a été essayé mais provoquait une boucle
+        // (le réajustement de largeur pouvait lui-même modifier la taille
+        // des ancêtres observés, qui redéclenchait un réajustement, etc.) —
+        // on se limite donc à quelques tentatives ponctuelles.
+        [300, 1000, 2500].forEach(function (delay) {
+            window.setTimeout(function () { widenToFitAncestor(app); }, delay);
         });
 
         if (!baseUrl) {

@@ -63,6 +63,266 @@
             ' ' + two(date.getUTCHours()) + 'z';
     }
 
+    // Encodeur GIF89a minimal, sans dépendance externe (cf. convention du
+    // plugin : aucune bibliothèque tierce). Palette globale par quantification
+    // « median cut », LZW variable-width standard GIF. Suffisant pour des
+    // cartes en aplats de couleur (peu de teintes distinctes par nature,
+    // grâce à la quantification par palier des couches météo).
+    var HarmonieGif = (function () {
+        function medianCut(samples, maxColors) {
+            var boxes = [samples];
+            function boxRange(box, channel) {
+                var min = 255;
+                var max = 0;
+                for (var i = 0; i < box.length; i++) {
+                    var v = box[i][channel];
+                    if (v < min) { min = v; }
+                    if (v > max) { max = v; }
+                }
+                return max - min;
+            }
+            function widestChannel(box) {
+                var rangeR = boxRange(box, 0);
+                var rangeG = boxRange(box, 1);
+                var rangeB = boxRange(box, 2);
+                if (rangeR >= rangeG && rangeR >= rangeB) { return 0; }
+                if (rangeG >= rangeB) { return 1; }
+                return 2;
+            }
+            while (boxes.length < maxColors) {
+                var splitIndex = -1;
+                var splitRange = -1;
+                for (var b = 0; b < boxes.length; b++) {
+                    if (boxes[b].length < 2) { continue; }
+                    var channel = widestChannel(boxes[b]);
+                    var range = boxRange(boxes[b], channel);
+                    if (range > splitRange) {
+                        splitRange = range;
+                        splitIndex = b;
+                    }
+                }
+                if (splitIndex === -1) { break; }
+                var box = boxes[splitIndex];
+                var axis = widestChannel(box);
+                box.sort(function (a, c) { return a[axis] - c[axis]; });
+                var middle = Math.floor(box.length / 2);
+                var left = box.slice(0, middle);
+                var right = box.slice(middle);
+                boxes.splice(splitIndex, 1, left, right);
+            }
+            return boxes.map(function (box) {
+                var sums = [0, 0, 0];
+                for (var i = 0; i < box.length; i++) {
+                    sums[0] += box[i][0];
+                    sums[1] += box[i][1];
+                    sums[2] += box[i][2];
+                }
+                return [
+                    Math.round(sums[0] / box.length),
+                    Math.round(sums[1] / box.length),
+                    Math.round(sums[2] / box.length)
+                ];
+            });
+        }
+
+        function buildPalette(frames, maxColors) {
+            var samples = [];
+            var stride = Math.max(1, Math.floor((frames[0].length / 4) / 6000));
+            frames.forEach(function (frame) {
+                for (var i = 0; i < frame.length; i += 4 * stride) {
+                    samples.push([frame[i], frame[i + 1], frame[i + 2]]);
+                }
+            });
+            if (!samples.length) {
+                samples.push([255, 255, 255]);
+            }
+            var palette = medianCut(samples, Math.max(2, maxColors));
+            while (palette.length < 2) {
+                palette.push([0, 0, 0]);
+            }
+            return palette;
+        }
+
+        function nearestIndex(palette, r, g, b, cache) {
+            var key = (r << 16) | (g << 8) | b;
+            var cached = cache.get(key);
+            if (cached !== undefined) {
+                return cached;
+            }
+            var best = 0;
+            var bestDistance = Infinity;
+            for (var i = 0; i < palette.length; i++) {
+                var dr = palette[i][0] - r;
+                var dg = palette[i][1] - g;
+                var db = palette[i][2] - b;
+                var distance = dr * dr + dg * dg + db * db;
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = i;
+                }
+            }
+            cache.set(key, best);
+            return best;
+        }
+
+        function indexFrame(frame, palette) {
+            var cache = new Map();
+            var indices = new Uint8Array(frame.length / 4);
+            for (var i = 0, p = 0; i < frame.length; i += 4, p++) {
+                indices[p] = nearestIndex(
+                    palette, frame[i], frame[i + 1], frame[i + 2], cache
+                );
+            }
+            return indices;
+        }
+
+        function lzwEncode(minCodeSize, indices) {
+            var clearCode = 1 << minCodeSize;
+            var endCode = clearCode + 1;
+            var codeSize;
+            var dict;
+            var nextCode;
+            var output = [];
+            var bitBuffer = 0;
+            var bitCount = 0;
+
+            function emit(code) {
+                bitBuffer |= (code << bitCount);
+                bitCount += codeSize;
+                while (bitCount >= 8) {
+                    output.push(bitBuffer & 0xff);
+                    bitBuffer >>= 8;
+                    bitCount -= 8;
+                }
+            }
+
+            function resetDictionary() {
+                dict = new Map();
+                for (var i = 0; i < clearCode; i++) {
+                    dict.set(String(i), i);
+                }
+                nextCode = endCode + 1;
+                codeSize = minCodeSize + 1;
+            }
+
+            resetDictionary();
+            emit(clearCode);
+            var w = null;
+            for (var idx = 0; idx < indices.length; idx++) {
+                var k = indices[idx];
+                var wk = w === null ? String(k) : w + ',' + k;
+                if (dict.has(wk)) {
+                    w = wk;
+                    continue;
+                }
+                emit(dict.get(w === null ? String(k) : w));
+                if (nextCode < 4096) {
+                    dict.set(wk, nextCode);
+                    nextCode += 1;
+                    // Volontairement ">" et non ">=" : le décodeur applique sa
+                    // propre bascule après avoir déjà consommé le code en
+                    // cours avec l'ancienne taille, donc l'encodeur doit
+                    // basculer un cran plus tard pour rester synchronisé —
+                    // vérifié empiriquement par un aller-retour encodage/
+                    // décodage bit à bit (">=" corrompt le flux au premier
+                    // changement de taille de code).
+                    if (nextCode > (1 << codeSize) && codeSize < 12) {
+                        codeSize += 1;
+                    }
+                } else {
+                    emit(clearCode);
+                    resetDictionary();
+                }
+                w = String(k);
+            }
+            if (w !== null) {
+                emit(dict.get(w));
+            }
+            emit(endCode);
+            if (bitCount > 0) {
+                output.push(bitBuffer & 0xff);
+            }
+            return output;
+        }
+
+        function writeSubBlocks(bytes, target) {
+            var offset = 0;
+            while (offset < bytes.length) {
+                var chunkSize = Math.min(255, bytes.length - offset);
+                target.push(chunkSize);
+                for (var i = 0; i < chunkSize; i++) {
+                    target.push(bytes[offset + i]);
+                }
+                offset += chunkSize;
+            }
+            target.push(0);
+        }
+
+        function encode(width, height, indexedFrames, palette, delayCs) {
+            var out = [];
+            // Le champ GIF "Size of Global Color Table" tient sur 3 bits :
+            // une valeur au-delà de 7 (soit plus de 256 couleurs) déborde
+            // sur les bits voisins (dont le Sort Flag) et corrompt tout le
+            // reste du fichier à partir de l'en-tête. On tronque donc la
+            // palette à 256 entrées avant de calculer ce champ.
+            if (palette.length > 256) {
+                palette = palette.slice(0, 256);
+            }
+            var colorTableSize = 1;
+            while ((1 << colorTableSize) < palette.length && colorTableSize < 7) {
+                colorTableSize += 1;
+            }
+            var tableEntries = 1 << (colorTableSize + 1);
+
+            'GIF89a'.split('').forEach(function (ch) {
+                out.push(ch.charCodeAt(0));
+            });
+            out.push(width & 0xff, (width >> 8) & 0xff);
+            out.push(height & 0xff, (height >> 8) & 0xff);
+            out.push(0x80 | (colorTableSize << 4) | colorTableSize);
+            out.push(0, 0);
+            for (var c = 0; c < tableEntries; c++) {
+                var colour = palette[c] || [0, 0, 0];
+                out.push(colour[0], colour[1], colour[2]);
+            }
+            // Extension NETSCAPE2.0 : boucle infinie.
+            out.push(0x21, 0xff, 0x0b);
+            'NETSCAPE2.0'.split('').forEach(function (ch) {
+                out.push(ch.charCodeAt(0));
+            });
+            out.push(0x03, 0x01, 0, 0, 0);
+
+            var minCodeSize = Math.max(2, colorTableSize + 1);
+
+            indexedFrames.forEach(function (indices) {
+                out.push(0x21, 0xf9, 0x04, 0x04);
+                out.push(delayCs & 0xff, (delayCs >> 8) & 0xff);
+                out.push(0, 0);
+                out.push(0x2c, 0, 0, 0, 0);
+                out.push(width & 0xff, (width >> 8) & 0xff);
+                out.push(height & 0xff, (height >> 8) & 0xff);
+                out.push(0);
+                out.push(minCodeSize);
+                var compressed = lzwEncode(minCodeSize, indices);
+                writeSubBlocks(compressed, out);
+            });
+
+            out.push(0x3b);
+            return new Uint8Array(out);
+        }
+
+        function build(frames, width, height, delayCs, maxColors) {
+            var palette = buildPalette(frames, maxColors || 128);
+            var indexedFrames = frames.map(function (frame) {
+                return indexFrame(frame, palette);
+            });
+            var bytes = encode(width, height, indexedFrames, palette, delayCs);
+            return new Blob([bytes], { type: 'image/gif' });
+        }
+
+        return { build: build };
+    }());
+
     function initMap(app) {
         var baseUrl = (app.dataset.baseUrl || '').replace(/\/+$/, '');
         var requestedLayer = app.dataset.variable || 'temperature';
@@ -112,6 +372,7 @@
         var advancedTools = app.querySelector('[data-hmap-advanced-tools]');
         var captureButton = app.querySelector('[data-hmap-capture]');
         var copyButton = app.querySelector('[data-hmap-copy]');
+        var gifButton = app.querySelector('[data-hmap-gif]');
         var pinButton = app.querySelector('[data-hmap-pin]');
         var viewToggleButton = app.querySelector('[data-hmap-view-toggle]');
         var diagramPopup = app.querySelector('[data-hmap-diagram-popup]');
@@ -128,6 +389,7 @@
         var transform = { scale: 1, x: 0, y: 0 };
         var staticView = false;
         var animationSpeed = speedSelect ? Number(speedSelect.value) || 1 : 1;
+        var gifBuilding = false;
         var activePointers = new Map();
         var gesture = null;
         var places = [];
@@ -674,6 +936,71 @@
             }
         }
 
+        function drawExportOverlay(context, width, height) {
+            var layer = manifest && manifest.layers ? manifest.layers[currentLayer] : null;
+            var titleText = (layer ? layer.label : 'Carte HARMONIE') +
+                (layer && layer.unit ? ' (' + layer.unit + ')' : '');
+            var runText = run ? run.textContent : '';
+            var dateText = mapDate ? mapDate.textContent : '';
+
+            context.save();
+            var barHeight = Math.max(30, Math.round(height * 0.05));
+            context.fillStyle = 'rgba(7, 8, 12, 0.74)';
+            context.fillRect(0, 0, width, barHeight);
+            context.textBaseline = 'middle';
+            context.textAlign = 'left';
+            context.fillStyle = '#ffffff';
+            context.font = '700 ' + Math.round(barHeight * 0.4) + 'px Inter, "Segoe UI", Arial, sans-serif';
+            context.fillText(titleText, barHeight * 0.3, barHeight * 0.36);
+            context.fillStyle = '#d9e4f3';
+            context.font = '600 ' + Math.round(barHeight * 0.26) + 'px Inter, "Segoe UI", Arial, sans-serif';
+            context.fillText(
+                [runText, dateText].filter(Boolean).join('  ·  '),
+                barHeight * 0.3,
+                barHeight * 0.74
+            );
+            context.textAlign = 'right';
+            context.fillStyle = '#ffffff';
+            context.font = '700 ' + Math.round(barHeight * 0.3) + 'px Inter, "Segoe UI", Arial, sans-serif';
+            context.fillText(
+                'HARMONIE (KNMI) · alertes-meteo.com',
+                width - barHeight * 0.3,
+                barHeight / 2
+            );
+
+            if (layer && Array.isArray(layer.stops) && layer.stops.length) {
+                var stops = layer.stops;
+                var legendHeight = Math.max(32, Math.round(height * 0.055));
+                var legendTop = height - legendHeight;
+                var swatchHeight = legendHeight * 0.45;
+                var stripWidth = width / stops.length;
+                var maxLabels = Math.max(2, Math.floor(width / 42));
+                var every = Math.max(1, Math.ceil(stops.length / maxLabels));
+                context.fillStyle = 'rgba(7, 8, 12, 0.82)';
+                context.fillRect(0, legendTop, width, legendHeight);
+                context.textAlign = 'center';
+                context.textBaseline = 'top';
+                context.font = '600 ' + Math.round(legendHeight * 0.28) + 'px Inter, "Segoe UI", Arial, sans-serif';
+                stops.forEach(function (stop, index) {
+                    var x = index * stripWidth;
+                    context.fillStyle = stop.color;
+                    context.fillRect(
+                        x, legendTop + legendHeight * 0.14,
+                        Math.ceil(stripWidth) + 1, swatchHeight
+                    );
+                    if (index % every === 0 || index === stops.length - 1) {
+                        context.fillStyle = '#ffffff';
+                        context.fillText(
+                            String(stop.value),
+                            x + stripWidth / 2,
+                            legendTop + legendHeight * 0.14 + swatchHeight + 2
+                        );
+                    }
+                });
+            }
+            context.restore();
+        }
+
         function composeCaptureCanvas() {
             if (!weatherCanvas || !weatherCanvas.width) {
                 return null;
@@ -687,7 +1014,33 @@
                     context.drawImage(source, 0, 0);
                 }
             });
+            drawExportOverlay(context, output.width, output.height);
             return output;
+        }
+
+        function layerSlug() {
+            var layerLabel = manifest && manifest.layers && manifest.layers[currentLayer]
+                ? manifest.layers[currentLayer].label
+                : currentLayer;
+            return String(layerLabel || 'harmonie').toLowerCase()
+                .normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'carte';
+        }
+
+        function compactStamp(date, withSeconds) {
+            function two(number) { return String(number).padStart(2, '0'); }
+            var stamp = String(date.getFullYear()) + two(date.getMonth() + 1) +
+                two(date.getDate()) + '-' + two(date.getHours()) + two(date.getMinutes());
+            return withSeconds ? stamp + two(date.getSeconds()) : stamp;
+        }
+
+        function exportFilename(extension) {
+            var runStamp = manifest && manifest.run_time
+                ? compactStamp(new Date(manifest.run_time), false)
+                : 'run-inconnu';
+            var captureStamp = compactStamp(new Date(), true);
+            return 'harmonie-' + layerSlug() +
+                '-run' + runStamp + '-' + captureStamp + '.' + extension;
         }
 
         function captureImage() {
@@ -702,19 +1055,131 @@
                 }
                 var url = URL.createObjectURL(blob);
                 var link = document.createElement('a');
-                var layerLabel = manifest && manifest.layers && manifest.layers[currentLayer]
-                    ? manifest.layers[currentLayer].label
-                    : currentLayer;
-                var slug = String(layerLabel || 'harmonie').toLowerCase()
-                    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-                    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
                 link.href = url;
-                link.download = 'harmonie-' + (slug || 'carte') + '-' + Date.now() + '.png';
+                link.download = exportFilename('png');
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 window.setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
             }, 'image/png');
+        }
+
+        var GIF_MAX_WIDTH = 640;
+
+        function composeGifFrame(width, height) {
+            var source = composeCaptureCanvas();
+            if (!source) {
+                return null;
+            }
+            var target = document.createElement('canvas');
+            target.width = width;
+            target.height = height;
+            var context = target.getContext('2d');
+            context.drawImage(source, 0, 0, width, height);
+            return context.getImageData(0, 0, width, height).data;
+        }
+
+        function renderStepAsync(index) {
+            return new Promise(function (resolve) {
+                renderStep(index, function () {
+                    // Deux passages par requestAnimationFrame pour laisser le
+                    // temps au navigateur de peindre la trame avant capture
+                    // (le chargement de l'image ne garantit pas, à lui seul,
+                    // que le canvas WebGL a déjà été redessiné).
+                    window.requestAnimationFrame(function () {
+                        window.requestAnimationFrame(function () {
+                            resolve();
+                        });
+                    });
+                });
+            });
+        }
+
+        function buildAnimatedGif() {
+            if (gifBuilding) {
+                return;
+            }
+            var steps = availableSteps();
+            if (steps.length < 2) {
+                setToolHint('Pas assez d’échéances disponibles pour un GIF animé.');
+                return;
+            }
+            gifBuilding = true;
+            var wasPlaying = timer !== null;
+            if (wasPlaying) {
+                stopAnimation();
+            }
+            var savedStep = currentStep;
+            var frames = [];
+            var frameWidth = Math.max(1, Math.min(GIF_MAX_WIDTH, weatherCanvas.width || GIF_MAX_WIDTH));
+            var frameHeight = Math.max(1, Math.round(
+                (weatherCanvas.height || frameWidth) * (frameWidth / (weatherCanvas.width || frameWidth))
+            ));
+            if (gifButton) {
+                gifButton.disabled = true;
+            }
+            setToolHint('Préparation du GIF animé : 0 / ' + steps.length + '…');
+
+            function captureNext(index) {
+                if (index >= steps.length) {
+                    return finish();
+                }
+                return renderStepAsync(index).then(function () {
+                    var pixels = composeGifFrame(frameWidth, frameHeight);
+                    if (pixels && pixels.length === frameWidth * frameHeight * 4) {
+                        frames.push(pixels);
+                    }
+                    setToolHint(
+                        'Préparation du GIF animé : ' + (index + 1) + ' / ' + steps.length + '…'
+                    );
+                    return captureNext(index + 1);
+                });
+            }
+
+            function finish() {
+                renderStepAsync(savedStep).then(function () {
+                    if (wasPlaying) {
+                        toggleAnimation();
+                    }
+                    if (frames.length < 2) {
+                        setToolHint('Échec de la préparation du GIF animé.');
+                        gifBuilding = false;
+                        if (gifButton) {
+                            gifButton.disabled = false;
+                        }
+                        return;
+                    }
+                    setToolHint('Encodage du GIF animé…');
+                    window.setTimeout(function () {
+                        try {
+                            var delayCs = Math.max(
+                                4,
+                                Math.round(1050 / animationSpeed / 10)
+                            );
+                            var blob = HarmonieGif.build(
+                                frames, frameWidth, frameHeight, delayCs, 128
+                            );
+                            var url = URL.createObjectURL(blob);
+                            var link = document.createElement('a');
+                            link.href = url;
+                            link.download = exportFilename('gif');
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+                            setToolHint('GIF animé téléchargé (' + frames.length + ' échéances).');
+                        } catch (error) {
+                            setToolHint('Échec de l’encodage du GIF animé.');
+                        }
+                        gifBuilding = false;
+                        if (gifButton) {
+                            gifButton.disabled = false;
+                        }
+                    }, 30);
+                });
+            }
+
+            captureNext(0);
         }
 
         function copyView() {
@@ -742,14 +1207,14 @@
         }
 
         function setViewMode(nextStatic) {
+            // « Vue PNG » n'est plus qu'un habillage visuel (bordure/étiquette)
+            // pensé pour une capture propre — le zoom/pan reste disponible
+            // dans les deux modes, ils partagent le même canvas interactif.
             staticView = Boolean(nextStatic);
             viewport.classList.toggle('is-static', staticView);
             if (viewToggleButton) {
                 viewToggleButton.textContent = staticView ? '🔍 Zoom interactif' : '🖼️ Vue PNG';
                 viewToggleButton.setAttribute('aria-pressed', staticView ? 'true' : 'false');
-            }
-            if (staticView) {
-                resetView();
             }
         }
 
@@ -1066,12 +1531,23 @@
             legend.classList.toggle('is-dense', layer.stops.length > 16);
             var strip = document.createElement('div');
             strip.className = 'hmap-legend-strip';
-            layer.stops.forEach(function (stop) {
+            // Avec des paliers rapprochés (bandes tous les 2°C ou 5 km/h,
+            // parfois 30+ paliers), afficher une valeur sous chaque palier
+            // les fait toutes se chevaucher et devenir illisibles. On ne
+            // garde qu'une valeur toutes les N paliers, calculé pour tenir
+            // dans la largeur réellement disponible.
+            var availableWidth = legend.clientWidth || 600;
+            var maxLabels = Math.max(2, Math.floor(availableWidth / 42));
+            var every = Math.max(1, Math.ceil(layer.stops.length / maxLabels));
+            var lastIndex = layer.stops.length - 1;
+            layer.stops.forEach(function (stop, index) {
                 var item = document.createElement('div');
                 item.className = 'hmap-legend-stop';
                 item.style.backgroundColor = stop.color;
                 var label = document.createElement('span');
-                label.textContent = stop.value;
+                if (index % every === 0 || index === lastIndex) {
+                    label.textContent = stop.value;
+                }
                 item.appendChild(label);
                 strip.appendChild(item);
             });
@@ -1090,10 +1566,11 @@
             });
         }
 
-        function renderStep(index) {
+        function renderStep(index, onSettled) {
             var steps = availableSteps();
             if (!steps.length) {
                 showError('Aucune carte disponible pour ce paramètre.');
+                if (onSettled) { onSettled(false); }
                 return;
             }
             currentStep = clamp(index, 0, steps.length - 1);
@@ -1134,11 +1611,13 @@
                 prepareImageSampler(loader);
                 loading.hidden = true;
                 preloadNeighbour(steps, currentStep);
+                if (onSettled) { onSettled(true); }
             };
             loader.onerror = function () {
                 if (token === loadToken) {
                     showError('Cette carte n’est pas encore disponible. Réessayez dans quelques instants.');
                 }
+                if (onSettled) { onSettled(false); }
             };
             loader.src = nextSource;
         }
@@ -1230,7 +1709,12 @@
                 alpha: false,
                 antialias: false,
                 depth: false,
-                preserveDrawingBuffer: false
+                // true est nécessaire : Capture PNG / Copier la vue / GIF
+                // animé relisent ce canvas (drawImage/toBlob) après coup,
+                // pas seulement au moment même du rendu. À false, le
+                // navigateur est libre de vider le tampon dès la frame
+                // suivante et toute capture différée récupère du noir.
+                preserveDrawingBuffer: true
             });
             if (!gl) {
                 return null;
@@ -1287,8 +1771,12 @@
             var texture = gl.createTexture();
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // NEAREST (pas LINEAR) : les cartes utilisent des paliers de
+            // couleur nets (bandes tous les 2°C, 5 km/h…) — un filtrage
+            // linéaire lisse artificiellement ces bandes en dégradé flou dès
+            // qu'on zoome, ce qui contredit exactement le rendu recherché.
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.uniform1i(gl.getUniformLocation(program, 'uWeather'), 0);
@@ -1364,8 +1852,9 @@
             );
             fallbackContext.scale(transform.scale, transform.scale);
             fallbackContext.translate(-width / 2, -height / 2);
-            fallbackContext.imageSmoothingEnabled = true;
-            fallbackContext.imageSmoothingQuality = 'high';
+            // Même choix que le chemin WebGL : pas de lissage, pour garder
+            // les paliers de couleur nets au lieu d'un dégradé flou.
+            fallbackContext.imageSmoothingEnabled = false;
             fallbackContext.drawImage(currentWeatherImage, 0, 0, width, height);
             fallbackContext.restore();
         }
@@ -1429,9 +1918,6 @@
                 pixelRatio * offsetY
             );
             vectorDefinition.paths.forEach(function (entry) {
-                if (entry.department && transform.scale > 3.2) {
-                    return;
-                }
                 vectorContext.strokeStyle = entry.colour;
                 vectorContext.globalAlpha = entry.opacity;
                 vectorContext.lineCap = entry.lineCap;
@@ -1687,7 +2173,7 @@
 
         function focusLocation(detail) {
             pendingFocus = detail || null;
-            if (staticView || !manifest || !pendingFocus || !manifest.bounds) {
+            if (!manifest || !pendingFocus || !manifest.bounds) {
                 return;
             }
             var width = viewport.clientWidth;
@@ -1779,6 +2265,9 @@
         if (copyButton) {
             copyButton.addEventListener('click', copyView);
         }
+        if (gifButton) {
+            gifButton.addEventListener('click', buildAnimatedGif);
+        }
         if (viewToggleButton) {
             viewToggleButton.addEventListener('click', function () {
                 setViewMode(!staticView);
@@ -1797,9 +2286,6 @@
             diagramClose.addEventListener('click', closeDiagram);
         }
         viewport.addEventListener('wheel', function (event) {
-            if (staticView) {
-                return;
-            }
             event.preventDefault();
             changeZoom(
                 transform.scale * Math.pow(1.0015, -event.deltaY),
@@ -1808,9 +2294,6 @@
             );
         }, { passive: false });
         viewport.addEventListener('dblclick', function (event) {
-            if (staticView) {
-                return;
-            }
             changeZoom(transform.scale * 1.65, event.clientX, event.clientY);
         });
 
@@ -1876,9 +2359,6 @@
         viewport.addEventListener('pointerleave', hideProbe);
 
         viewport.addEventListener('pointerdown', function (event) {
-            if (staticView) {
-                return;
-            }
             if (event.target.closest('button, .hmap-diagram-popup, .hmap-probe-pinned')) {
                 return;
             }

@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.12.0
+ * Version: 2.15.0
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.12.0');
+define('HKW_VERSION', '2.15.0');
 define('HKW_RELEASE_DATE', '2026-08-23');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
@@ -136,6 +136,7 @@ function hkw_render_admin_help_page() {
         <p><code>[harmonie_table]</code> : trois tableaux (prévisions générales, orages, neige) et une carte interactive HARMONIE.</p>
         <p><code>[harmonie_table code="75056" departement="75" ville="Paris" heures="48"]</code></p>
         <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
+        <p><code>[harmonie_table onglet="carte"]</code> : ouvre directement sur l'onglet choisi — <code>general</code> (par défaut), <code>orages</code>, <code>neige</code> ou <code>carte</code>.</p>
         <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
         <p>Voir <a href="<?php echo esc_url(admin_url('options-general.php?page=harmonie-knmi')); ?>">Réglages</a> pour l’adresse du dossier de données national.</p>
     </div>
@@ -160,6 +161,7 @@ function hkw_render_settings_page() {
         <p><code>[harmonie_table]</code> : trois tableaux (prévisions générales, orages, neige) et une carte interactive HARMONIE.</p>
         <p><code>[harmonie_table code="75056" departement="75" ville="Paris" heures="48"]</code></p>
         <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
+        <p><code>[harmonie_table onglet="carte"]</code> : ouvre directement sur l'onglet choisi — <code>general</code> (par défaut), <code>orages</code>, <code>neige</code> ou <code>carte</code>.</p>
         <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
     </div>
     <?php
@@ -196,6 +198,7 @@ function hkw_render_shortcode($atts) {
             'heures' => '48',
             'titre' => '',
             'selecteur' => 'oui',
+            'onglet' => 'general',
         ),
         $atts,
         'harmonie_table'
@@ -214,6 +217,20 @@ function hkw_render_shortcode($atts) {
     }
     $selector_value = strtolower(trim(sanitize_text_field($atts['selecteur'])));
     $show_selector = !in_array($selector_value, array('non', '0', 'false', 'off'), true);
+    $initial_view = strtolower(trim(sanitize_text_field($atts['onglet'])));
+    $view_aliases = array(
+        'general' => 'general',
+        'generale' => 'general',
+        'generales' => 'general',
+        'orage' => 'storms',
+        'orages' => 'storms',
+        'storms' => 'storms',
+        'neige' => 'snow',
+        'snow' => 'snow',
+        'carte' => 'map',
+        'map' => 'map',
+    );
+    $initial_view = isset($view_aliases[$initial_view]) ? $view_aliases[$initial_view] : 'general';
 
     $input_id = hkw_unique_identifier();
     $results_id = $input_id . '-results';
@@ -236,6 +253,7 @@ function hkw_render_shortcode($atts) {
         data-hours="<?php echo esc_attr($hours); ?>"
         data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
         data-title-prefix="<?php echo esc_attr($title_prefix); ?>"
+        data-initial-view="<?php echo esc_attr($initial_view); ?>"
         data-selector="<?php echo $show_selector ? '1' : '0'; ?>"
     >
         <header class="hkw-header">
@@ -457,7 +475,7 @@ function hkw_render_shortcode($atts) {
                 data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
                 data-animation="1"
                 data-module-version="<?php echo esc_attr(HKW_VERSION); ?>"
-                style="--hmap-height: 760px"
+                style="--hmap-height: 1050px"
             >
                 <p class="hkw-meta" data-hmap-run>Chargement du dernier run HARMONIE…</p>
 
@@ -563,6 +581,7 @@ function hkw_render_shortcode($atts) {
                     <div class="hmap-advanced-tools" data-hmap-advanced-tools hidden aria-label="Outils avancés">
                         <button type="button" data-hmap-capture title="Capturer l’image affichée" aria-label="Capturer l’image affichée">📷 Capture PNG</button>
                         <button type="button" data-hmap-copy title="Copier la vue dans le presse-papiers" aria-label="Copier la vue dans le presse-papiers">📋 Copier la vue</button>
+                        <button type="button" data-hmap-gif title="Créer un GIF animé parcourant toutes les échéances" aria-label="Créer un GIF animé parcourant toutes les échéances">🎞️ GIF animé</button>
                         <button type="button" data-hmap-pin title="Épingler la valeur au clic" aria-label="Épingler la valeur au clic" aria-pressed="false">📌 Figer la valeur</button>
                     </div>
                     <div class="hmap-diagram-popup" data-hmap-diagram-popup hidden>
@@ -575,6 +594,9 @@ function hkw_render_shortcode($atts) {
                         </div>
                     </div>
                     <div class="hmap-legend" data-hmap-legend aria-label="Légende de la carte"></div>
+                    <a class="hmap-map-brand" href="https://www.alertes-meteo.com/" target="_blank" rel="noopener noreferrer">
+                        KNMI · www.alertes-meteo.com
+                    </a>
                     <div class="hmap-loading" data-hmap-loading role="status">Chargement de la carte…</div>
                     <div class="hmap-error" data-hmap-error role="alert" hidden></div>
                 </div>

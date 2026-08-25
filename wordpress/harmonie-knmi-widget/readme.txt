@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.12.0
+Stable tag: 2.15.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,6 +30,47 @@ Exemple limité à une seule ville, sans champ de recherche :
 `[harmonie_table code="66136" departement="66" ville="Perpignan" heures="48" selecteur="non"]`
 
 == Changelog ==
+
+= 2.15.0 =
+* Nouvel attribut de shortcode `onglet` pour ouvrir directement sur un onglet précis : `[harmonie_table onglet="carte"]` (valeurs : `general`, `orages`, `neige`, `carte`).
+
+= 2.14.5 =
+* La « Vue PNG » avait perdu le zoom/pan — ce n'était censé être qu'un habillage visuel (bordure) pour une capture propre, pas un mode verrouillé. Zoom et déplacement redisponibles dans les deux modes.
+* Pipeline : lignes de démarcation ajoutées entre les paliers de couleur sur toutes les cartes, pour une lecture nette des bandes même sur les paliers dont la teinte est proche — nécessite de pousser `scripts/` et de relancer l'Action.
+
+= 2.14.4 =
+* Correctif : la carte apparaissait lissée/floue en zoomant, effaçant les bandes de couleur nettes ajoutées récemment (2°C, 5 km/h…). Le rendu WebGL utilisait un filtrage linéaire (adapté à un dégradé continu, pas à des paliers nets) ; passé en filtrage au plus proche voisin pour que les frontières entre bandes restent nettes à tout niveau de zoom.
+
+= 2.14.3 =
+* Vrai correctif du GIF animé (le précédent correctif de l'en-tête n'était que la première moitié du problème) : l'encodeur LZW faisait grossir la taille des codes un cran trop tôt par rapport à ce qu'un décodeur standard attend, désynchronisant durablement le flux dès le premier changement de taille de code — d'où l'aspect « bruit/statique » du GIF qui s'ouvrait mais était illisible. Vérifié par un aller-retour encodage/décodage bit à bit, y compris en conditions de bruit pur (pire cas pour la compression LZW), à la taille réelle utilisée en production.
+
+= 2.14.2 =
+* Correctif du GIF animé (fichier impossible à ouvrir) : le champ d'en-tête GIF codant la taille de la palette de couleurs tient sur 3 bits (256 couleurs maximum) ; avec plus de 128 couleurs, le calcul débordait sur les bits voisins et corrompait tout le fichier à partir de l'en-tête. Palette désormais toujours plafonnée correctement.
+* Noms de fichiers export (Capture PNG / GIF animé) : remplace l'horodatage brut en millisecondes par la date/heure du run affiché et l'heure de génération du fichier (avec les secondes), ex. `harmonie-temperature-a-2-m-run20260824-1425-20260824-094512.png`.
+
+= 2.14.1 =
+* Correctif critique : le tableau/la carte rétrécissait puis s'agrandissait en boucle sans arrêt. Cause : le ResizeObserver ajouté en 2.14.0 pour fiabiliser l'élargissement pouvait lui-même déclencher le changement de taille qu'il observait (débordement horizontal → barre de défilement → nouvelle mesure plus étroite → re-déclenchement...). Le ResizeObserver est retiré ; la largeur cible est désormais plafonnée à la largeur réelle de la fenêtre pour ne jamais provoquer ce débordement, et chaque calcul repart d'une mesure propre (sans le réglage précédent) au lieu de se baser sur lui-même.
+
+= 2.14.0 =
+* Correctif : la largeur de la carte revenait parfois à l'étroit — le calcul ne se relançait que sur un évènement de redimensionnement navigateur, qui ne se déclenche pas toujours quand la mise en page du thème se stabilise après coup (polices, scripts du thème). Passage à un ResizeObserver + plusieurs nouvelles tentatives après le chargement.
+* Correctif : sur les échelles à nombreux paliers (bandes 2°C, 5 km/h), toutes les valeurs s'affichaient et se chevauchaient, illisibles. Seule une valeur sur N s'affiche désormais, calculé pour tenir dans la largeur disponible.
+* Capture PNG / Copier la vue / GIF animé intègrent maintenant directement dans l'image : titre du paramètre, run, date/heure de l'échéance, légende complète et attribution.
+* Pipeline : résolution des cartes augmentée (1600×1200 → 2000×1500) pour des frontières départementales moins « en escalier ».
+
+= 2.13.1 =
+* Correctif majeur : Capture PNG, Copier la vue et GIF animé produisaient une image noire. Cause : le canvas WebGL de la carte était créé avec `preserveDrawingBuffer: false`, donc son contenu pouvait être vidé par le navigateur avant toute capture différée. Corrigé.
+* Correctif : la largeur de la carte (`.hmap-viewport`) était plafonnée indépendamment de la largeur déjà élargie du widget — elle suit maintenant la même largeur disponible.
+* Ajout de l'attribution « KNMI · www.alertes-meteo.com » sur la carte.
+* Pipeline : frontières départementales plus visibles (épaisseur et opacité augmentées, couleur adoucie) — nécessite de pousser `scripts/` et de relancer l'Action.
+
+= 2.13.0 =
+* Carte : le widget sort désormais de la colonne étroite de la page (mesure dynamique des conteneurs parents) — visait à corriger la sensation d'étroitesse signalée sur le tableau et la carte.
+* Nouveau bouton « 🎞️ GIF animé » : parcourt toutes les échéances de la couche sélectionnée et télécharge un GIF animé (encodeur GIF89a écrit en JS pur, sans dépendance externe).
+* Pipeline : 8 nouvelles couches carte — température maximale/minimale sur la période, refroidissement éolien, accumulation de neige, rafale maximale sur la période, couverture nuageuse basse/moyenne/haute (déjà décodées mais jamais exposées). Nécessite de pousser `scripts/` et de relancer l'Action.
+
+= 2.12.1 =
+* Correctif : les frontières départementales disparaissaient de la carte au-delà d'un certain niveau de zoom (seuil hérité du module AROME, jamais retiré lors du réglage du zoom HARMONIE). Elles restent désormais affichées à tous les niveaux de zoom.
+* Pipeline : nouvelle couche carte « Précipitations totales » (cumul depuis le début du run) — nécessite de pousser `scripts/` et de relancer l'Action, comme les villes/frontières.
 
 = 2.12.0 =
 * Correctif : la carte était bridée à une largeur fixe bien plus petite que son conteneur (« --hmap-height » trop faible) — élargie.
