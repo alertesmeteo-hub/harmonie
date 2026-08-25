@@ -310,6 +310,7 @@
         var fireDisclaimer = app.querySelector('[data-hrw-fire-disclaimer]');
         var mapSvg = app.querySelector('[data-hrw-map]');
         var insetSvg = app.querySelector('[data-hrw-inset-map]');
+        var mapWrap = app.querySelector('.hrw-map-wrap');
         var mapLoading = app.querySelector('[data-hrw-map-loading]');
         var legend = app.querySelector('[data-hrw-legend]');
         var detailPlaceholder = app.querySelector('[data-hrw-detail-placeholder]');
@@ -601,6 +602,68 @@
             renderAdvice(dayEntry.hazards[detailHazard] || 0);
         }
 
+        // --- Info-bulle au survol d'un département (nom, niveau de l'aléa
+        // affiché, mini-frise de la journée sélectionnée) — indépendante du
+        // clic, qui ouvre lui le panneau de détail complet.
+        var tooltip = document.createElement('div');
+        tooltip.className = 'hrw-map-tooltip';
+        tooltip.hidden = true;
+        if (mapWrap) { mapWrap.appendChild(tooltip); }
+
+        function positionTooltip(anchorEl) {
+            if (!mapWrap) { return; }
+            var wrapRect = mapWrap.getBoundingClientRect();
+            var anchorRect = anchorEl.getBoundingClientRect();
+            var x = anchorRect.left + anchorRect.width / 2 - wrapRect.left;
+            var y = anchorRect.top - wrapRect.top;
+            tooltip.style.left = Math.max(8, Math.min(x, wrapRect.width - 8)) + 'px';
+            tooltip.style.top = Math.max(8, y) + 'px';
+        }
+
+        function showDeptTooltip(code, anchorEl) {
+            if (!manifest || !manifest.departments[code]) { return; }
+            var department = manifest.departments[code];
+            var dayEntry = department.daily[currentDayIndex];
+            if (!dayEntry) { return; }
+            var level = (dayEntry.hazards || {})[currentHazard] || 0;
+            var info = levelInfo(level);
+
+            tooltip.replaceChildren();
+            var title = document.createElement('div');
+            title.className = 'hrw-tooltip-title';
+            title.textContent = (namesByCode[code] || code) + ' (' + code + ')';
+            tooltip.appendChild(title);
+
+            var chip = document.createElement('div');
+            chip.className = 'hrw-tooltip-chip';
+            chip.style.backgroundColor = info.color;
+            chip.textContent = hazardLabel(currentHazard) + ' — ' + info.label;
+            tooltip.appendChild(chip);
+
+            var hourlyAll = department.hourly || [];
+            var dayHours = hourlyAll.filter(function (entry) {
+                return zonedDateKey(entry.time, timezone) === dayEntry.date;
+            });
+            if (dayHours.length) {
+                var mini = document.createElement('div');
+                mini.className = 'hrw-tooltip-frise';
+                dayHours.forEach(function (entry) {
+                    var hourLevel = (entry.hazards || {})[currentHazard] || 0;
+                    var segment = document.createElement('span');
+                    segment.style.backgroundColor = levelInfo(hourLevel).color;
+                    mini.appendChild(segment);
+                });
+                tooltip.appendChild(mini);
+            }
+
+            positionTooltip(anchorEl);
+            tooltip.hidden = false;
+        }
+
+        function hideDeptTooltip() {
+            tooltip.hidden = true;
+        }
+
         function buildMapInto(svgEl, features, viewSize, padding, suppressIconCodes, iconRadius) {
             if (!svgEl || !features.length) { return; }
             var bounds = computeBoundsFromFeatures(features);
@@ -626,6 +689,10 @@
                         selectDepartment(code);
                     }
                 });
+                path.addEventListener('mouseenter', function () { showDeptTooltip(code, path); });
+                path.addEventListener('mouseleave', hideDeptTooltip);
+                path.addEventListener('focus', function () { showDeptTooltip(code, path); });
+                path.addEventListener('blur', hideDeptTooltip);
                 svgEl.appendChild(path);
 
                 var ringPoints = largestExteriorRingPoints(feature.geometry, project);

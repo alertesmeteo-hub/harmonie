@@ -41,7 +41,7 @@ except ImportError:  # pragma: no cover - Python < 3.9 non pris en charge ici
 
 
 LOGGER = logging.getLogger("risques")
-PIPELINE_VERSION = "1.2.0"
+PIPELINE_VERSION = "1.3.0"
 PARIS_TZ = ZoneInfo("Europe/Paris") if ZoneInfo is not None else timezone.utc
 
 DEFAULT_HARMONIE_BASE_URL = (
@@ -205,21 +205,32 @@ def load_department_series(
     return DepartmentSeries(code=code, times=times, columns=columns, forecast=forecast)
 
 
-def _nanmax(values: np.ndarray) -> float:
+def _nanpercentile_high(values: np.ndarray, percentile: float = 90.0) -> float:
+    """Perçentile haut plutôt que le max strict : un département compte des
+    dizaines à centaines de points HARMONIE, et prendre le max fait qu'UNE
+    seule commune en pointe fait passer tout le département au niveau
+    maximal, pour toute la journée (constaté en production : 58% des
+    départements en Orages « Sévère » le même jour). Le 90e centile reste
+    sensible à un risque réellement étendu, sans être piloté par un seul
+    point isolé."""
+
     finite = values[np.isfinite(values)] if values.size else values
-    return float(np.max(finite)) if finite.size else float("nan")
+    return float(np.percentile(finite, percentile)) if finite.size else float("nan")
 
 
-def _nanmin(values: np.ndarray) -> float:
+def _nanpercentile_low(values: np.ndarray, percentile: float = 10.0) -> float:
+    """Symétrique de ``_nanpercentile_high`` pour les grandeurs qui
+    s'aggravent quand elles diminuent (visibilité, température, humidité)."""
+
     finite = values[np.isfinite(values)] if values.size else values
-    return float(np.min(finite)) if finite.size else float("nan")
+    return float(np.percentile(finite, percentile)) if finite.size else float("nan")
 
 
 def _risk_column_level(values: np.ndarray, cap: int = 4) -> int:
     finite = values[np.isfinite(values)] if values.size else values
     if not finite.size:
         return 0
-    return int(min(cap, max(0, round(float(np.max(finite))))))
+    return int(min(cap, max(0, round(_nanpercentile_high(values)))))
 
 
 def _threshold_level(value: float, thresholds: tuple[float, float, float, float]) -> int:
@@ -260,11 +271,14 @@ def hourly_hazard_levels(
     wind_speed = col("wind_speed_kmh")
     visibility = col("visibility_km")
 
-    max_temperature = _nanmax(temperature)
-    min_temperature = _nanmin(temperature)
-    min_humidity = _nanmin(humidity)
-    max_wind = _nanmax(wind_speed)
-    min_visibility = _nanmin(visibility)
+    # Perçentiles plutôt que max/min strict : même correction que pour les
+    # aléas à code de risque (cf. _nanpercentile_high) — une seule commune
+    # ne doit pas suffire à faire basculer tout le département.
+    max_temperature = _nanpercentile_high(temperature)
+    min_temperature = _nanpercentile_low(temperature)
+    min_humidity = _nanpercentile_low(humidity)
+    max_wind = _nanpercentile_high(wind_speed)
+    min_visibility = _nanpercentile_low(visibility)
 
     # Cocktail feu recalibré pour ne pas s'allumer sur une journée d'été
     # ordinaire (ex. 30°C/40% d'humidité en France ne constitue pas un

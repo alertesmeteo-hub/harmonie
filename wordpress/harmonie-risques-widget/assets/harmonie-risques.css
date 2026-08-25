@@ -307,6 +307,52 @@
     color: var(--hrw-muted);
 }
 
+.hrw-map-tooltip {
+    position: absolute;
+    z-index: 30;
+    transform: translate(-50%, calc(-100% - 10px));
+    padding: 8px 10px;
+    border: 1px solid var(--hrw-border);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .18);
+    pointer-events: none;
+    max-width: 220px;
+}
+
+.hrw-tooltip-title {
+    font-size: .8rem;
+    font-weight: 800;
+    color: var(--hrw-text);
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.hrw-tooltip-chip {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: .72rem;
+    font-weight: 700;
+    color: #1c1f26;
+    margin-bottom: 6px;
+    white-space: nowrap;
+}
+
+.hrw-tooltip-frise {
+    display: flex;
+    height: 14px;
+    width: 180px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--hrw-border);
+}
+
+.hrw-tooltip-frise span {
+    flex: 1 1 0;
+    min-width: 1px;
+}
+
 .hrw-map-loading {
     position: absolute;
     inset: 0;
