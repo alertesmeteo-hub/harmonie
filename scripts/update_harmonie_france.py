@@ -36,7 +36,7 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "2.7.0"
+NATIONAL_PIPELINE_VERSION = "3.0.1"
 MAP_WIDTH = 2000
 MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
@@ -800,14 +800,6 @@ def near_surface_pressure_level(
     return np.where(above_ground, result, np.nan)
 
 
-def risk_code(score: np.ndarray) -> np.ndarray:
-    result = np.zeros(score.shape, dtype=np.int16)
-    result[np.isfinite(score) & (score >= 20)] = 1
-    result[np.isfinite(score) & (score >= 40)] = 2
-    result[np.isfinite(score) & (score >= 60)] = 3
-    result[np.isfinite(score) & (score >= 80)] = 4
-    return result
-
 def parse_grib_file(
     path: Path,
     grid: NationalGrid,
@@ -891,6 +883,7 @@ def transform_step(
 ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     state = state or {}
     previous_cumulative = state.get("precip_cumulative")
+    previous_convective_cumulative = state.get("convective_precip_cumulative")
     raw = step["values"]
     temperature_calc = raw["temperature_k"] - 273.15
     humidity_calc = normalize_relative_humidity(raw["humidity_pct"])
@@ -929,9 +922,22 @@ def transform_step(
     # utilisé uniquement pour la couche carte « Précipitations totales ».
     precipitation_total = rounded(precipitation_raw, 1)
 
-    convective_precipitation = rounded(
-        np.maximum(raw["convective_precipitation_raw_mm"], 0.0), 1
-    )
+    # « acpcp »/« cp » est un cumul depuis le début du run (comme
+    # precipitation_raw_mm) et non une valeur horaire — désaccumulation
+    # nécessaire avant tout usage comme signal « pluie convective 1h »
+    # (utilisé par lightning_score et par le classement Orages).
+    convective_precipitation_raw = np.maximum(raw["convective_precipitation_raw_mm"], 0.0)
+    if step.get("precip_start_step") == 0 and step.get("precip_end_step") is not None:
+        if previous_convective_cumulative is None:
+            convective_precipitation = convective_precipitation_raw.copy()
+        else:
+            convective_precipitation = np.maximum(
+                convective_precipitation_raw - previous_convective_cumulative, 0.0
+            )
+        previous_convective_cumulative = convective_precipitation_raw.copy()
+    else:
+        convective_precipitation = convective_precipitation_raw.copy()
+    convective_precipitation = rounded(convective_precipitation, 1)
     graupel = rounded(np.maximum(raw["graupel_raw_mm"], 0.0), 2)
 
     angle = np.radians(step["rotations"])
@@ -1101,22 +1107,9 @@ def transform_step(
     )
     omega_500 = raw["omega_500_pas"].copy()
 
-    # Score convectif : CAPE/CIN estimés sur P3 + indices K/TT.
-    score = np.zeros(len(temperature), dtype=np.float64)
-    score += np.where(np.isfinite(cape), np.clip(cape / 50.0, 0.0, 30.0), 0.0)
-    score += np.where(np.isfinite(k_index), np.clip((k_index - 15.0) * 1.25, 0.0, 25.0), 0.0)
-    score += np.where(np.isfinite(total_totals), np.clip((total_totals - 38.0) * 1.25, 0.0, 20.0), 0.0)
-    score += np.where(np.isfinite(rh_levels[700]) & (rh_levels[700] >= 60.0), 5.0, 0.0)
-    score += np.where(np.isfinite(rh_levels[700]) & (rh_levels[700] >= 75.0), 5.0, 0.0)
-    score += np.where(np.isfinite(precipitation) & (precipitation >= 0.2), 5.0, 0.0)
-    score += np.where(np.isfinite(precipitation) & (precipitation >= 2.0), 5.0, 0.0)
-    score += np.where(np.isfinite(precipitation) & (precipitation >= 5.0), 5.0, 0.0)
-    score += np.where(np.isfinite(shear_0_6) & (shear_0_6 >= 15.0), 5.0, 0.0)
-    score += np.where(np.isfinite(shear_0_6) & (shear_0_6 >= 22.0), 5.0, 0.0)
-    score += np.where(np.isfinite(omega_500) & (omega_500 <= -0.15), 5.0, 0.0)
-    score = np.clip(score, 0.0, 100.0)
-    thunder_risk = risk_code(score)
-
+    # --- Foudre et grêle calculés ICI (avant le classement Orages, qui les
+    # utilise comme signaux d'entrée) — formules inchangées, seulement
+    # déplacées plus haut dans la fonction.
     lightning_score = np.zeros(len(temperature), dtype=np.float64)
     lightning_score += np.where(np.isfinite(cape), np.clip(cape / 40.0, 0.0, 35.0), 0.0)
     lightning_score += np.where(np.isfinite(k_index), np.clip((k_index - 18.0) * 1.4, 0.0, 25.0), 0.0)
@@ -1139,6 +1132,79 @@ def transform_step(
     hail_risk[hail_points >= 2] = 1
     hail_risk[hail_points >= 4] = 2
     hail_risk[hail_points >= 6] = 3
+
+    # --- Classement Orages : arbre de règles explicite à 5 niveaux stricts
+    # (spécification fournie), remplaçant l'ancien score additif continu.
+    #
+    # Approximations documentées, faute de mieux avec les champs P3
+    # disponibles :
+    # - « cape » (déjà calculée par approximate_cape_cin_p3) sert de proxy
+    #   MUCAPE — ce n'est pas un vrai calcul « most-unstable parcel »,
+    #   simplement la CAPE déjà utilisée ailleurs dans ce fichier.
+    # - DCAPE (Downdraft CAPE) n'est pas calculée par descente de parcelle
+    #   ici : on utilise le proxy usuel dit du « dry punch » (déficit
+    #   point de rosée à 700hPa), un indicateur classique de potentiel de
+    #   rafales descendantes évaporatives en prévision opérationnelle,
+    #   mais qui n'est PAS une vraie DCAPE thermodynamique.
+    # - Diamètre de grêle : HARMONIE P3 ne fournit pas de taille de
+    #   grêlon ; on dérive une estimation grossière (1 / 2 / 4 cm) du même
+    #   système de points que ``hail_risk`` ci-dessus.
+    dcape_proxy = np.where(
+        np.isfinite(t_levels[700]) & np.isfinite(td700),
+        np.clip((t_levels[700] - td700) * 40.0, 0.0, 1500.0),
+        0.0,
+    )
+
+    hail_diameter_cm = np.zeros(len(temperature), dtype=np.float64)
+    hail_diameter_cm[hail_points >= 2] = 1.0
+    hail_diameter_cm[hail_points >= 4] = 2.0
+    hail_diameter_cm[hail_points >= 6] = 4.0
+
+    convective_precip_1h = convective_precipitation
+
+    # Règle 1 — déclenchement impératif : sans instabilité minimale ET sans
+    # signal de précipitation convective ou de foudre, niveau 0 quel que
+    # soit le reste (CAPE/K-index mesurent un potentiel, pas si l'orage se
+    # déclenche réellement — constaté en production : 0,0 mm de
+    # précipitations classées « Extrême » avant ce correctif).
+    precip_signal = np.isfinite(convective_precip_1h) & (convective_precip_1h >= 0.5)
+    lightning_signal = lightning_score >= 20.0
+    trigger = np.isfinite(cape) & (cape > 100.0) & (precip_signal | lightning_signal)
+
+    thunder_risk = np.zeros(len(temperature), dtype=np.int16)
+
+    # Règle 2 — Faible/Modéré : le déclenchement suffit (orages de masse
+    # d'air chaud ou lignes désorganisées).
+    thunder_risk[trigger] = 1
+
+    # Règle 3 — Marqué/Fort : orages organisés (multicellulaires).
+    level2 = trigger & (
+        (convective_precip_1h >= 25.0)
+        | (hail_diameter_cm >= 1.0)
+        | (np.isfinite(gust_speed) & (gust_speed >= 70.0))
+    )
+    thunder_risk[level2] = 2
+
+    # Règle 4 — Intense/Violent : structures très organisées.
+    level3 = trigger & (
+        ((cape >= 1500.0) & np.isfinite(shear_0_6) & (shear_0_6 >= 20.0))
+        | (np.isfinite(gust_speed) & (gust_speed >= 90.0))
+        | (hail_diameter_cm >= 2.0)
+        | (convective_precip_1h >= 50.0)
+    )
+    thunder_risk[level3] = 3
+
+    # Règle 5 — Extrême : au moins 2 des critères de niveau 4 réunis
+    # simultanément (phénomène destructeur : derecho, supercellule géante,
+    # crue éclair majeure).
+    extreme_criteria = np.zeros(len(temperature), dtype=np.int16)
+    extreme_criteria += (np.isfinite(gust_speed) & (gust_speed >= 120.0)).astype(np.int16)
+    extreme_criteria += (hail_diameter_cm >= 4.0).astype(np.int16)
+    extreme_criteria += (convective_precip_1h >= 80.0).astype(np.int16)
+    extreme_criteria += (dcape_proxy >= 900.0).astype(np.int16)
+    extreme_criteria += (cape >= 2500.0).astype(np.int16)
+    level4 = trigger & (extreme_criteria >= 2)
+    thunder_risk[level4] = 4
 
     heavy_rain_risk = np.zeros(len(temperature), dtype=np.int16)
     heavy_rain_risk[np.isfinite(precipitation) & (precipitation >= 2.0)] = 1
@@ -1327,6 +1393,7 @@ def transform_step(
         },
         {
             "precip_cumulative": previous_cumulative,
+            "convective_precip_cumulative": previous_convective_cumulative,
             "temperature_max": temperature_max,
             "temperature_min": temperature_min,
             "gust_max": gust_max,
