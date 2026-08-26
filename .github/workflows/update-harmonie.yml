@@ -42,7 +42,7 @@ jobs:
           python scripts/update_harmonie_france.py \
             --catalog config/communes-france.json \
             --output-dir build/national \
-            --forecast-hours 48 \
+            --forecast-hours 60 \
             --current-metadata-url \
             "https://raw.githubusercontent.com/${{ github.repository }}/data/index.json"
           if test -f build/national/index.json; then
