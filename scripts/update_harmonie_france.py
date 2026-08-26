@@ -36,7 +36,7 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "3.0.2"
+NATIONAL_PIPELINE_VERSION = "3.0.3"
 MAP_WIDTH = 2000
 MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
@@ -1155,11 +1155,6 @@ def transform_step(
         0.0,
     )
 
-    hail_diameter_cm = np.zeros(len(temperature), dtype=np.float64)
-    hail_diameter_cm[hail_points >= 2] = 1.0
-    hail_diameter_cm[hail_points >= 4] = 2.0
-    hail_diameter_cm[hail_points >= 6] = 4.0
-
     # convective_precipitation_raw_mm (« acpcp »/« cp ») s'est révélé absent
     # du paquet KNMI P3 actuellement téléchargé (constaté en production :
     # 0 valeur non nulle sur des dizaines de milliers de points/heures,
@@ -1173,20 +1168,35 @@ def transform_step(
         np.isfinite(convective_precipitation), convective_precipitation, precipitation
     )
 
-    # Règle 1 — déclenchement impératif : sans instabilité minimale ET sans
-    # pluie mesurable ni signal de foudre marqué, niveau 0 quel que soit le
-    # reste (CAPE/K-index mesurent un potentiel, pas si l'orage se déclenche
-    # réellement — constaté en production : département de montagne classé
-    # « Faible » un jour sans une goutte de pluie, uniquement parce que la
-    # CAPE seule suffisait à faire dépasser 20 à lightning_score, faute de
-    # signal de pluie disponible pour corriger le tir). Le seuil de
-    # lightning_score est relevé à 50 : la CAPE seule plafonne à 35 points
-    # dans ce score (cape/40, borné), donc franchir 50 exige en plus un
-    # K-index ou un Total-Totals réellement élevés — un vrai air orageux
-    # humide, pas seulement un fort gradient thermique sec de montagne.
+    # Règle 1 — déclenchement impératif : sans pluie mesurable, niveau 0,
+    # point final. Deux tentatives précédentes laissaient la foudre seule
+    # (lightning_score) déclencher un niveau — d'abord ≥20, puis ≥50 après
+    # un premier correctif insuffisant — mais constaté en production à
+    # deux reprises que ce score dépasse largement 50 sur une simple
+    # instabilité d'après-midi ordinaire (CAPE 800-1500 J/kg + Total-Totals
+    # 45-51, typique d'un air de montagne l'été), y compris avec 0,0 mm de
+    # pluie et 0 graupel partout. La pluie mesurée reste le seul signal
+    # disponible garantissant qu'un orage produit réellement quelque chose
+    # au sol ; lightning_score n'est plus utilisé du tout ici (il reste
+    # publié tel quel comme diagnostic indépendant, cf. plus bas).
     precip_signal = np.isfinite(convective_precip_1h) & (convective_precip_1h >= 0.2)
-    lightning_signal = lightning_score >= 50.0
-    trigger = np.isfinite(cape) & (cape > 100.0) & (precip_signal | lightning_signal)
+    trigger = np.isfinite(cape) & (cape > 100.0) & precip_signal
+
+    # La grêle est une forme de précipitation : sans pluie mesurée à cette
+    # heure, un diamètre dérivé uniquement de cape/cisaillement/Total-
+    # Totals (sans le moindre graupel ni pluie modélisés) est une pure
+    # coïncidence synoptique, pas un vrai signal de grêle — même principe
+    # que pour l'aléa Grêle indépendant du pipeline risques, qui annule déjà
+    # son niveau sans précipitation mesurée à l'heure. Constaté en
+    # production : hail_points atteignait 4 (donc 2 cm) par la seule
+    # combinaison cisaillement ≥15 et ≥20 m/s (comptés deux fois) + CAPE
+    # ≥1000 + Total-Totals ≥45, sans aucune pluie ni graupel, faisant
+    # basculer des points entiers directement en « Intense/Violent ».
+    hail_diameter_cm = np.zeros(len(temperature), dtype=np.float64)
+    hail_diameter_cm[hail_points >= 2] = 1.0
+    hail_diameter_cm[hail_points >= 4] = 2.0
+    hail_diameter_cm[hail_points >= 6] = 4.0
+    hail_diameter_cm = np.where(precip_signal, hail_diameter_cm, 0.0)
 
     thunder_risk = np.zeros(len(temperature), dtype=np.int16)
 
