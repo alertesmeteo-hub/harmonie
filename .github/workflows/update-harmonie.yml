@@ -3,8 +3,16 @@ name: Mise à jour HARMONIE France
 on:
   workflow_dispatch:
   schedule:
-    # Les heures planifiées par GitHub sont toujours en UTC.
-    - cron: "27 */6 * * *"
+    # Les heures planifiées par GitHub sont toujours en UTC. Horaire plutôt
+    # que toutes les 6h : le script vérifie d'abord les métadonnées KNMI
+    # (appel léger) avant de télécharger l'archive de 3,4 Go, donc un
+    # passage horaire ne coûte presque rien la plupart du temps (aucun
+    # nouveau run à traiter) et réduit le délai de prise en compte d'un
+    # nouveau run HARMONIE (jusqu'à 6h avant, jusqu'à 1h maintenant) — même
+    # principe déjà en place pour le workflow risques. Calé à :10 pour
+    # avoir terminé avant le passage risques à :50 (qui dépend de ces
+    # données).
+    - cron: "10 * * * *"
 
 permissions:
   contents: write
