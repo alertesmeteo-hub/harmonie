@@ -36,7 +36,7 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "3.0.3"
+NATIONAL_PIPELINE_VERSION = "3.0.4"
 MAP_WIDTH = 2000
 MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
@@ -1155,6 +1155,21 @@ def transform_step(
         0.0,
     )
 
+    # Rafales utilisées pour le classement Orages : un sommet ou un col de
+    # haute montagne n'est représentatif d'aucune zone habitée — même
+    # correctif que celui déjà appliqué côté pipeline risques pour l'aléa
+    # Vent et le résumé national (bug du « 260 km/h en Haute-Savoie »),
+    # mais jamais porté jusqu'ici : les critères rafale du classement
+    # Orages (règles 3/4/5 ci-dessous) utilisaient encore gust_speed brut,
+    # donc restaient exposés au même type d'anomalie dans les départements
+    # de montagne. ``gust_speed`` lui-même n'est pas modifié (utilisé tel
+    # quel ailleurs : carte, severe_wind_risk, colonne publiée).
+    gust_speed_for_orages = np.where(
+        np.isfinite(model_altitude_m) & (model_altitude_m > 2000.0),
+        np.nan,
+        gust_speed,
+    )
+
     # convective_precipitation_raw_mm (« acpcp »/« cp ») s'est révélé absent
     # du paquet KNMI P3 actuellement téléchargé (constaté en production :
     # 0 valeur non nulle sur des dizaines de milliers de points/heures,
@@ -1208,14 +1223,14 @@ def transform_step(
     level2 = trigger & (
         (convective_precip_1h >= 25.0)
         | (hail_diameter_cm >= 1.0)
-        | (np.isfinite(gust_speed) & (gust_speed >= 70.0))
+        | (np.isfinite(gust_speed_for_orages) & (gust_speed_for_orages >= 70.0))
     )
     thunder_risk[level2] = 2
 
     # Règle 4 — Intense/Violent : structures très organisées.
     level3 = trigger & (
         ((cape >= 1500.0) & np.isfinite(shear_0_6) & (shear_0_6 >= 20.0))
-        | (np.isfinite(gust_speed) & (gust_speed >= 90.0))
+        | (np.isfinite(gust_speed_for_orages) & (gust_speed_for_orages >= 90.0))
         | (hail_diameter_cm >= 2.0)
         | (convective_precip_1h >= 50.0)
     )
@@ -1225,7 +1240,7 @@ def transform_step(
     # simultanément (phénomène destructeur : derecho, supercellule géante,
     # crue éclair majeure).
     extreme_criteria = np.zeros(len(temperature), dtype=np.int16)
-    extreme_criteria += (np.isfinite(gust_speed) & (gust_speed >= 120.0)).astype(np.int16)
+    extreme_criteria += (np.isfinite(gust_speed_for_orages) & (gust_speed_for_orages >= 120.0)).astype(np.int16)
     extreme_criteria += (hail_diameter_cm >= 4.0).astype(np.int16)
     extreme_criteria += (convective_precip_1h >= 80.0).astype(np.int16)
     extreme_criteria += (dcape_proxy >= 900.0).astype(np.int16)
