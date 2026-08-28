@@ -36,7 +36,7 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "3.0.4"
+NATIONAL_PIPELINE_VERSION = "3.0.5"
 MAP_WIDTH = 2000
 MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
@@ -1207,11 +1207,27 @@ def transform_step(
     # combinaison cisaillement ≥15 et ≥20 m/s (comptés deux fois) + CAPE
     # ≥1000 + Total-Totals ≥45, sans aucune pluie ni graupel, faisant
     # basculer des points entiers directement en « Intense/Violent ».
+    #
+    # Deuxième trou constaté en production APRÈS ce premier correctif :
+    # hail_points atteint encore 4 (donc 2 cm) avec seulement 0,2-1,5 mm de
+    # pluie et 0 graupel — via cisaillement ≥15 ET ≥20 m/s (2 points pour
+    # UNE seule grandeur physique comptée deux fois) + Total-Totals ≥45 ET
+    # ≥50 (pareil, 2 points pour une seule grandeur). Un cisaillement/indice
+    # d'instabilité modérément élevé n'est pas un signal de grêle en soi —
+    # sans graupel, faire remonter jusqu'à 2 cm n'est pas défendable. Le
+    # palier 1 cm reste accessible via la seule pluie mesurée (au moins un
+    # signal réel), mais 2 cm et plus exigent désormais du graupel
+    # effectivement prévu par le modèle à ce point/heure, pas seulement une
+    # coïncidence d'indices synoptiques.
     hail_diameter_cm = np.zeros(len(temperature), dtype=np.float64)
     hail_diameter_cm[hail_points >= 2] = 1.0
     hail_diameter_cm[hail_points >= 4] = 2.0
     hail_diameter_cm[hail_points >= 6] = 4.0
     hail_diameter_cm = np.where(precip_signal, hail_diameter_cm, 0.0)
+    has_graupel = np.isfinite(graupel) & (graupel > 0.0)
+    hail_diameter_cm = np.where(
+        (hail_diameter_cm >= 2.0) & ~has_graupel, 1.0, hail_diameter_cm
+    )
 
     thunder_risk = np.zeros(len(temperature), dtype=np.int16)
 
