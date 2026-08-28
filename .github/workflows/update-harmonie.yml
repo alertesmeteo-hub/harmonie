@@ -2,6 +2,11 @@ name: Mise à jour HARMONIE France
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Retraiter même si le script pense que le run KNMI est déjà publié (utile après un skip incorrect, ex. cache CDN)"
+        type: boolean
+        default: false
   schedule:
     # Les heures planifiées par GitHub sont toujours en UTC. Horaire plutôt
     # que toutes les 6h : le script vérifie d'abord les métadonnées KNMI
@@ -52,7 +57,8 @@ jobs:
             --output-dir build/national \
             --forecast-hours 60 \
             --current-metadata-url \
-            "https://raw.githubusercontent.com/${{ github.repository }}/data/index.json"
+            "https://raw.githubusercontent.com/${{ github.repository }}/data/index.json" \
+            ${{ inputs.force && '--force' || '' }}
           if test -f build/national/index.json; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
           else
