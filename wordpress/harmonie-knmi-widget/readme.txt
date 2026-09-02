@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.16.9
+Stable tag: 2.16.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,11 @@ Météogramme seul pour Amiens :
 `[harmonie_meteogramme code="80021" departement="80" ville="Amiens" heures="60"]`
 
 == Changelog ==
+
+= 2.16.10 =
+* Dates quotidiennes réunies sur une ligne, pictogrammes placés le long de la courbe de température et dégradé thermique vert-jaune-orange-rouge.
+* Double lissage des températures, du vent moyen et des rafales ; flèches de vent renforcées.
+* Titre remplacé par « Prévisions pour [ville] à 3 jours » et informations du point HARMONIE déplacées tout en bas.
 
 = 2.16.9 =
 * Ajout de huit cartes d'activités calculées sur les prochaines 24 heures : voile, running, cerf-volant, jeux extérieurs, pêche, baignade, cyclisme et camping/randonnée.
