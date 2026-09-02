@@ -476,6 +476,64 @@
         section.appendChild(grid); app.appendChild(section);
     }
 
+    function renderCitySearch(app, index, baseUrl) {
+        var form = htmlNode('form', 'hkw-mg-city-search');
+        var label = htmlNode('label', '', 'Prévisions météo pour une autre ville :');
+        var controls = htmlNode('div', 'hkw-mg-city-search-controls');
+        var input = htmlNode('input', 'hkw-mg-city-search-input');
+        input.type = 'search';
+        input.placeholder = 'Nom de ville ou code postal';
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', 'Nom de ville ou code postal');
+        var button = htmlNode('button', 'hkw-mg-city-search-button', 'Afficher');
+        button.type = 'submit';
+        var status = htmlNode('p', 'hkw-mg-city-search-status');
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        controls.appendChild(input); controls.appendChild(button);
+        form.appendChild(label); form.appendChild(controls); form.appendChild(status);
+
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var query = input.value.trim();
+            if (query.length < 2) {
+                status.textContent = 'Saisissez au moins deux lettres ou un code postal.';
+                return;
+            }
+            button.disabled = true;
+            status.textContent = 'Recherche de la commune…';
+            var parameters = new URLSearchParams({
+                fields: 'nom,code,codeDepartement,population',
+                format: 'json', boost: 'population', limit: '10'
+            });
+            if (/^\d{5}$/.test(query)) { parameters.set('codePostal', query); }
+            else { parameters.set('nom', query); }
+            fetchJson('https://geo.api.gouv.fr/communes?' + parameters.toString())
+                .then(function (payload) {
+                    var candidates = Array.isArray(payload) ? payload : [];
+                    var candidate = candidates.find(function (item) {
+                        return index.departments && index.departments[String(item.codeDepartement || '').toUpperCase()];
+                    });
+                    if (!candidate) { throw new Error('commune introuvable dans la couverture HARMONIE'); }
+                    var departmentCode = String(candidate.codeDepartement).toUpperCase();
+                    var departmentInfo = index.departments[departmentCode];
+                    var departmentFile = departmentInfo.file || ('departements/' + departmentCode + '.json');
+                    status.textContent = 'Chargement des prévisions pour ' + candidate.nom + '…';
+                    return fetchJson(baseUrl + '/' + departmentFile.replace(/^\/+/, '')).then(function (department) {
+                        app.dataset.code = String(candidate.code);
+                        app.dataset.department = departmentCode;
+                        app.dataset.name = candidate.nom;
+                        render(app, index, department);
+                    });
+                })
+                .catch(function (error) {
+                    status.textContent = 'Recherche impossible : ' + error.message + '.';
+                    button.disabled = false;
+                });
+        });
+        return form;
+    }
+
     function render(app, index, department) {
         var code = app.dataset.code;
         var hours = Math.max(1, Math.min(60, parseInt(app.dataset.hours || '60', 10)));
@@ -521,6 +579,7 @@
         app.replaceChildren();
         var heading = htmlNode('h2', 'hkw-mg-title', 'Prévisions pour ' + commune[1] + ' à 3 jours');
         app.appendChild(heading);
+        app.appendChild(renderCitySearch(app, index, (app.dataset.baseUrl || '').replace(/\/+$/, '')));
         var subtitle = commune[1] + ' (' + commune[0] + ') · point HARMONIE '
             + formatNumber(point[1], 3) + '° N / ' + formatNumber(point[2], 3) + '° E'
             + ' · altitude modèle ' + formatNumber(point[3], 0) + ' m'
