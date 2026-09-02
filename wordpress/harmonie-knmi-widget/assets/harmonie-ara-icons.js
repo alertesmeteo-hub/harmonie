@@ -126,6 +126,10 @@
             group.appendChild(svgNode('title', {}, city.name + ' · ' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm'));
             svg.appendChild(group);
         });
+        svg.appendChild(svgNode('text', {
+            x: VIEW.width - 14, y: VIEW.height - 14,
+            'text-anchor': 'end', class: 'hkw-ara-brand'
+        }, 'www.alertes-meteo.com'));
         panel.appendChild(svg);
         return panel;
     }

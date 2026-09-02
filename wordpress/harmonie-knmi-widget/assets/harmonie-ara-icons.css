@@ -11,6 +11,7 @@
 .hkw-ara-weather-icon { font: 32px "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 .hkw-ara-temperature { fill: #b42318; font: 800 17px Arial, sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
 .hkw-ara-city-name { fill: #17230f; font: 700 11px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
+.hkw-ara-brand { fill: #173d27; font: 800 15px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 4px; }
 .hkw-ara-icons-loading, .hkw-ara-icons-error { padding: 20px; border-radius: 12px; background: #edf8c8; color: #486232; }
 .hkw-ara-icons-error { color: #a12622; }
 @media (max-width: 760px) {

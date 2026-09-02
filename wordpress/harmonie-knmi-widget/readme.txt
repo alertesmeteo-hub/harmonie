@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.18.0
+Stable tag: 2.18.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -39,6 +39,9 @@ Carte à pictogrammes matin/après-midi pour l'Auvergne-Rhône-Alpes :
 `[harmonie_carte_icones_ara]`
 
 == Changelog ==
+
+= 2.18.1 =
+* Ajout de la signature `www.alertes-meteo.com` en bas à droite des cartes matin et après-midi.
 
 = 2.18.0 =
 * Nouvelle carte à pictogrammes `[harmonie_carte_icones_ara]` pour l'Auvergne-Rhône-Alpes.
