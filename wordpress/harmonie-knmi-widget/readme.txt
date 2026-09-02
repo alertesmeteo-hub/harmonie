@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.18.1
+Stable tag: 2.19.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,7 +38,18 @@ Météogramme seul pour Amiens :
 Carte à pictogrammes matin/après-midi pour l'Auvergne-Rhône-Alpes :
 `[harmonie_carte_icones_ara]`
 
+Carte à pictogrammes pour une région, avec sélecteur des 13 régions :
+`[harmonie_carte_icones region="bretagne"]`
+
+Pour masquer le sélecteur régional :
+`[harmonie_carte_icones region="occitanie" selecteur="non"]`
+
 == Changelog ==
+
+= 2.19.0 =
+* La carte matin/après-midi couvre désormais les 13 régions métropolitaines, Corse comprise.
+* Nouveau shortcode générique `[harmonie_carte_icones region="bretagne"]` et sélecteur régional intégré.
+* L'ancien shortcode `[harmonie_carte_icones_ara]` reste compatible.
 
 = 2.18.1 =
 * Ajout de la signature `www.alertes-meteo.com` en bas à droite des cartes matin et après-midi.

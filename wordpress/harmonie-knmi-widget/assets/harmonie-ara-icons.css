@@ -1,5 +1,7 @@
 .hkw-ara-icons { width: 100%; max-width: 1600px; margin: 0 auto; color: #17230f; font-family: Arial, Helvetica, sans-serif; }
 .hkw-ara-icons > h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; }
+.hkw-region-controls { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-weight: 700; }
+.hkw-region-selector { min-width: 280px; max-width: 100%; padding: 9px 36px 9px 12px; border: 1px solid #98bd6e; border-radius: 8px; background: #fff; color: #234512; font: inherit; }
 .hkw-ara-day-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .hkw-ara-day-buttons button { padding: 9px 15px; border: 1px solid #98bd6e; border-radius: 999px; background: #fff; color: #31531c; font-weight: 700; cursor: pointer; text-transform: capitalize; }
 .hkw-ara-day-buttons button.is-active { background: #2e7d32; color: #fff; }
@@ -16,6 +18,8 @@
 .hkw-ara-icons-error { color: #a12622; }
 @media (max-width: 760px) {
     .hkw-ara-icons > h2 { font-size: 25px; }
+    .hkw-region-controls { align-items: stretch; flex-direction: column; }
+    .hkw-region-selector { width: 100%; min-width: 0; }
     .hkw-ara-icon-maps { grid-template-columns: 1fr; }
     .hkw-ara-icon-panel h3 { font-size: 18px; }
 }
