@@ -413,13 +413,7 @@
         // d'AROME (64x) grossit un pixel source flou en bouillie visuelle.
         // Limité pour rester lisible jusqu'à la résolution réelle des données.
         var maxScale = 16;
-        var initialFocusLatitude = Number(app.dataset.focusLatitude);
-        var initialFocusLongitude = Number(app.dataset.focusLongitude);
-        var pendingFocus = Number.isFinite(initialFocusLatitude) && Number.isFinite(initialFocusLongitude) ? {
-            latitude: initialFocusLatitude,
-            longitude: initialFocusLongitude,
-            scale: Number(app.dataset.focusScale) || 4
-        } : null;
+        var pendingFocus = null;
         var toolMode = null;
         var pinnedEnabled = false;
         var pinnedPoint = null;

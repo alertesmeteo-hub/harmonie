@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.17.0
+Stable tag: 2.18.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,13 +35,15 @@ Météogramme seul pour Le Boulou :
 Météogramme seul pour Amiens :
 `[harmonie_meteogramme code="80021" departement="80" ville="Amiens" heures="60"]`
 
-Carte régionale autonome pour l'Auvergne-Rhône-Alpes :
-`[harmonie_carte_region]`
-
-Avec une couche initiale et une hauteur personnalisées :
-`[harmonie_carte_region couche="temperature" hauteur="900"]`
+Carte à pictogrammes matin/après-midi pour l'Auvergne-Rhône-Alpes :
+`[harmonie_carte_icones_ara]`
 
 == Changelog ==
+
+= 2.18.0 =
+* Nouvelle carte à pictogrammes `[harmonie_carte_icones_ara]` pour l'Auvergne-Rhône-Alpes.
+* Deux vues HARMONIE par journée, matin à 09 h et après-midi à 15 h, avec températures et principales villes régionales.
+* Sélecteur sur trois jours et affichage responsive en une colonne sur téléphone.
 
 = 2.17.0 =
 * Nouveau shortcode autonome `[harmonie_carte_region]` (alias `[harmonie_carte_ara]`) centré et zoomé sur l'Auvergne-Rhône-Alpes.

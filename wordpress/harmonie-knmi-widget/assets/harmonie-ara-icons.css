@@ -1,0 +1,20 @@
+.hkw-ara-icons { width: 100%; max-width: 1600px; margin: 0 auto; color: #17230f; font-family: Arial, Helvetica, sans-serif; }
+.hkw-ara-icons > h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; }
+.hkw-ara-day-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.hkw-ara-day-buttons button { padding: 9px 15px; border: 1px solid #98bd6e; border-radius: 999px; background: #fff; color: #31531c; font-weight: 700; cursor: pointer; text-transform: capitalize; }
+.hkw-ara-day-buttons button.is-active { background: #2e7d32; color: #fff; }
+.hkw-ara-icon-maps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.hkw-ara-icon-panel { overflow: hidden; border: 1px solid #b6d58b; border-radius: 18px; background: #edf8c8; }
+.hkw-ara-icon-panel h3 { margin: 0; padding: 13px 16px; background: #dcedad; color: #234512; font-size: 20px; }
+.hkw-ara-icon-panel svg { display: block; width: 100%; height: auto; background: linear-gradient(#eef8d5, #dff0bc); }
+.hkw-ara-departments path { fill: rgba(255,255,255,.42); stroke: #688650; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.hkw-ara-weather-icon { font: 32px "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
+.hkw-ara-temperature { fill: #b42318; font: 800 17px Arial, sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.hkw-ara-city-name { fill: #17230f; font: 700 11px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
+.hkw-ara-icons-loading, .hkw-ara-icons-error { padding: 20px; border-radius: 12px; background: #edf8c8; color: #486232; }
+.hkw-ara-icons-error { color: #a12622; }
+@media (max-width: 760px) {
+    .hkw-ara-icons > h2 { font-size: 25px; }
+    .hkw-ara-icon-maps { grid-template-columns: 1fr; }
+    .hkw-ara-icon-panel h3 { font-size: 18px; }
+}
