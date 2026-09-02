@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.16.15
+Stable tag: 2.16.16
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,9 @@ Météogramme seul pour Amiens :
 `[harmonie_meteogramme code="80021" departement="80" ville="Amiens" heures="60"]`
 
 == Changelog ==
+
+= 2.16.16 =
+* Ajout de l'intitulé vertical « Précipitations (mm/h) » à gauche du panneau nuages/précipitations ; l'altitude reste indiquée à droite.
 
 = 2.16.15 =
 * Mention `alertesmeteo-hub/harmonie, branche data` retirée de la ligne source.

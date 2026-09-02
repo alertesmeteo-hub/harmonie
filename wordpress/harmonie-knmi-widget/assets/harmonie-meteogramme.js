@@ -303,6 +303,11 @@
             yTitle: 'Altitude (km)', rightAxis: true,
             ariaLabel: 'Prévision horaire des étages nuageux entre 0 et 15 kilomètres et des précipitations'
         });
+        svg.appendChild(svgNode('text', {
+            x: 18, y: base.margin.top + base.innerHeight / 2,
+            transform: 'rotate(-90 18 ' + (base.margin.top + base.innerHeight / 2) + ')',
+            'text-anchor': 'middle', class: 'hkw-mg-y-title hkw-mg-rain-y-title'
+        }, 'Précipitations (mm/h)'));
         var slot = base.innerWidth / Math.max(1, data.length - 1);
         var cloudSeries = [
             { key: 'cloudLow', altitude: 1.2, thickness: 1.2 },
