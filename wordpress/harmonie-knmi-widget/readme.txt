@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.16.5
+Stable tag: 2.16.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,10 @@ Météogramme seul pour Amiens :
 `[harmonie_meteogramme code="80021" departement="80" ville="Amiens" heures="60"]`
 
 == Changelog ==
+
+= 2.16.6 =
+* Les nuages bas, moyens et élevés sont désormais affichés sur trois bandes distinctes.
+* L'intensité de chaque bande représente la couverture de 0 à 100 %, sans lissage ni dépassement des limites.
 
 = 2.16.5 =
 * Couverture nuageuse séparée en trois étages : nuages bas, moyens et élevés, chacun de 0 à 100 %.

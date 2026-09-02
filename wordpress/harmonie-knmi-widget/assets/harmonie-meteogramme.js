@@ -129,9 +129,11 @@
             }
         });
 
-        var tickCount = 5;
-        for (var tick = 0; tick <= tickCount; tick += 1) {
-            var value = options.min + (options.max - options.min) * tick / tickCount;
+        var ticks = options.yTicks || Array.from({ length: 6 }, function (_, tick) {
+            return { value: options.min + (options.max - options.min) * tick / 5 };
+        });
+        ticks.forEach(function (tick) {
+            var value = tick.value;
             var py = y(value);
             svg.appendChild(svgNode('line', {
                 x1: margin.left, x2: width - margin.right, y1: py, y2: py,
@@ -139,8 +141,8 @@
             }));
             svg.appendChild(svgNode('text', {
                 x: margin.left - 10, y: py + 4, 'text-anchor': 'end', class: 'hkw-mg-axis'
-            }, formatNumber(value, options.decimals || 0)));
-        }
+            }, tick.label !== undefined ? tick.label : formatNumber(value, options.decimals || 0)));
+        });
 
         data.forEach(function (row, index) {
             if (index % 6 !== 0 && index !== data.length - 1) { return; }
@@ -260,22 +262,36 @@
     function drawCloudRain(container, data, tooltip, app) {
         var svg = svgNode('svg', { class: 'hkw-mg-svg' });
         var base = drawBase(svg, data, {
-            min: 0, max: 100, decimals: 0, title: 'Précipitations et couverture nuageuse',
-            yTitle: 'Nébulosité (%)', ariaLabel: 'Prévision horaire de nébulosité et de précipitations'
+            min: 0, max: 3, decimals: 0, title: 'Précipitations et étages nuageux',
+            yTicks: [
+                { value: .5, label: 'Bas' },
+                { value: 1.5, label: 'Moyens' },
+                { value: 2.5, label: 'Élevés' }
+            ],
+            yTitle: 'Étages nuageux', ariaLabel: 'Prévision horaire des étages nuageux et des précipitations'
         });
         var slot = base.innerWidth / Math.max(1, data.length - 1);
         var cloudSeries = [
-            { key: 'cloudLow', className: 'hkw-mg-cloud-low' },
-            { key: 'cloudMid', className: 'hkw-mg-cloud-mid' },
-            { key: 'cloudHigh', className: 'hkw-mg-cloud-high' }
+            { key: 'cloudLow', level: 0 },
+            { key: 'cloudMid', level: 1 },
+            { key: 'cloudHigh', level: 2 }
         ];
         cloudSeries.forEach(function (series) {
-            var points = data.map(function (row, index) { return [base.x(index), base.y(row[series.key])]; });
-            svg.appendChild(svgNode('path', { d: linePath(points), class: 'hkw-mg-cloud-layer ' + series.className }));
+            data.forEach(function (row, index) {
+                var coverage = Math.max(0, Math.min(100, row[series.key]));
+                svg.insertBefore(svgNode('rect', {
+                    x: Math.max(base.margin.left, base.x(index) - slot / 2),
+                    y: base.y(series.level + 1),
+                    width: Math.max(2, slot + 1),
+                    height: base.y(series.level) - base.y(series.level + 1),
+                    class: 'hkw-mg-cloud-cell',
+                    'fill-opacity': (.06 + coverage * .0088).toFixed(3)
+                }), svg.querySelector('.hkw-mg-frame'));
+            });
         });
         data.forEach(function (row, index) {
             if (row.precipitation > 0) {
-                var rainHeight = Math.min(base.innerHeight, row.precipitation * 18);
+                var rainHeight = Math.min(base.innerHeight / 3, row.precipitation * 18);
                 svg.appendChild(svgNode('rect', {
                     x: base.x(index) - Math.max(2, slot * .22),
                     y: base.margin.top + base.innerHeight - rainHeight,
