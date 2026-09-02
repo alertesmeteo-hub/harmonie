@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.19.0
+Stable tag: 2.19.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,9 @@ Pour masquer le sélecteur régional :
 `[harmonie_carte_icones region="occitanie" selecteur="non"]`
 
 == Changelog ==
+
+= 2.19.1 =
+* Infobulles interactives ajoutées sur chaque ville des cartes régionales : température, pluie, nébulosité, vent et rafales.
 
 = 2.19.0 =
 * La carte matin/après-midi couvre désormais les 13 régions métropolitaines, Corse comprise.

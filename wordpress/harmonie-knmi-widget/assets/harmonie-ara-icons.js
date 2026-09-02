@@ -112,13 +112,28 @@
         if (!commune) { return []; }
         var pointId = Number(commune[6]); var columns = payload.columns && payload.columns.values ? payload.columns.values : [];
         function column(name, fallback) { var position = columns.indexOf(name); return position >= 0 ? position : fallback; }
-        var indexes = { temp: column('temperature_c', 0), rain: column('precipitation_mm', 2), cloud: column('cloud_cover_pct', 3), condition: column('condition_code', 9) };
+        var indexes = { temp: column('temperature_c', 0), rain: column('precipitation_mm', 2), cloud: column('cloud_cover_pct', 3), wind: column('wind_speed_kmh', 4), gust: column('wind_gust_kmh', 6), condition: column('condition_code', 9) };
         return (payload.forecast || []).map(function (step) {
             var date = new Date(step[0]); var values = step[1][pointId];
-            return { day: tools.key.format(date), hour: Number(tools.hour.format(date).replace(/\D/g, '')), temperature: Number(values[indexes.temp]) || 0, precipitation: Number(values[indexes.rain]) || 0, cloud: Number(values[indexes.cloud]) || 0, condition: Number(values[indexes.condition]) || 0 };
+            return { day: tools.key.format(date), hour: Number(tools.hour.format(date).replace(/\D/g, '')), temperature: Number(values[indexes.temp]) || 0, precipitation: Number(values[indexes.rain]) || 0, cloud: Number(values[indexes.cloud]) || 0, wind: Number(values[indexes.wind]) || 0, gust: Number(values[indexes.gust]) || 0, condition: Number(values[indexes.condition]) || 0 };
         });
     }
-    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project) {
+    function placeTooltip(tooltip, app, event) {
+        var bounds = app.getBoundingClientRect();
+        tooltip.style.left = Math.min(Math.max(8, event.clientX - bounds.left + 14), Math.max(8, bounds.width - 244)) + 'px';
+        tooltip.style.top = Math.max(8, event.clientY - bounds.top + 14) + 'px';
+    }
+    function cityTooltip(group, tooltip, app, message) {
+        function show(event) { tooltip.textContent = message; tooltip.hidden = false; if (event && event.clientX) { placeTooltip(tooltip, app, event); } }
+        function hide() { tooltip.hidden = true; }
+        group.addEventListener('pointerenter', show);
+        group.addEventListener('pointermove', show);
+        group.addEventListener('pointerleave', hide);
+        group.addEventListener('focus', function () { tooltip.textContent = message; tooltip.style.left = '8px'; tooltip.style.top = '8px'; tooltip.hidden = false; });
+        group.addEventListener('blur', hide);
+        group.addEventListener('click', function (event) { event.stopPropagation(); if (tooltip.hidden) { show(event); } else { hide(); } });
+    }
+    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
         var mapGroup = svgNode('g', { class: 'hkw-ara-departments' });
@@ -126,18 +141,21 @@
         region.cities.forEach(function (city) {
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
-            var point = project([city.lon, city.lat]); var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + point[0] + ' ' + point[1] + ')' });
+            var point = project([city.lon, city.lat]); var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + point[0] + ' ' + point[1] + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
             group.appendChild(svgNode('text', { class: 'hkw-ara-city-name', x: 0, y: 22, 'text-anchor': 'middle' }, city.name));
-            group.appendChild(svgNode('title', {}, city.name + ' · ' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm')); svg.appendChild(group);
+            group.appendChild(svgNode('title', {}, city.name + ' · ' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm'));
+            cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
+            svg.appendChild(group);
         });
         svg.appendChild(svgNode('text', { x: SIZE.width - 14, y: SIZE.height - 14, 'text-anchor': 'end', class: 'hkw-ara-brand' }, 'www.alertes-meteo.com'));
         panel.appendChild(svg); return panel;
     }
     function init(app) {
         var base = (app.dataset.baseUrl || '').replace(/\/+$/, ''); var tools = makeTimeTools(app.dataset.timezone || 'Europe/Paris');
-        var heading = app.querySelector('h2'); var selector = htmlNode('select', 'hkw-region-selector'); var controls = htmlNode('div', 'hkw-region-controls'); var content = htmlNode('div', 'hkw-region-content');
+        var heading = app.querySelector('h2'); var selector = htmlNode('select', 'hkw-region-selector'); var controls = htmlNode('div', 'hkw-region-controls'); var content = htmlNode('div', 'hkw-region-content'); var tooltip = htmlNode('div', 'hkw-ara-tooltip');
+        tooltip.hidden = true; tooltip.setAttribute('role', 'tooltip'); app.appendChild(tooltip);
         var boundaryPromise = fetchJson(app.dataset.boundaryUrl);
         Object.keys(REGIONS).forEach(function (slug) { var option = htmlNode('option', '', REGIONS[slug].name); option.value = slug; selector.appendChild(option); });
         selector.value = REGIONS[app.dataset.region] ? app.dataset.region : 'auvergne-rhone-alpes';
@@ -158,7 +176,7 @@
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });
