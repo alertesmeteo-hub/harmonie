@@ -3,6 +3,18 @@
     --hmap-dark: #073b63;
 }
 
+.hkw-region-map { width: 100%; max-width: 1600px; margin: 0 auto; }
+.hkw-region-map > h2 { margin: 0 0 14px; color: #12351f; font: 800 2rem/1.2 Inter, "Segoe UI", Arial, sans-serif; }
+.hkw-region-map .hkw-header,
+.hkw-region-map .hkw-tabs,
+.hkw-region-map .hkw-footer { display: none !important; }
+.hkw-region-map .hkw-card { padding-top: 0; }
+.hkw-region-map .hkw-panel[data-hkw-panel="map"] { margin-top: 0; }
+
+@media (max-width: 760px) {
+    .hkw-region-map > h2 { font-size: 1.5rem; }
+}
+
 .hmap-card [hidden] {
     display: none !important;
 }

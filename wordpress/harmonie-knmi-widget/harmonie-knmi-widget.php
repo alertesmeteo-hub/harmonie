@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.16.20
+ * Version: 2.17.0
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.16.20');
+define('HKW_VERSION', '2.17.0');
 define('HKW_RELEASE_DATE', '2026-09-02');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
@@ -27,6 +27,8 @@ add_action('admin_init', 'hkw_register_settings');
 add_action('admin_menu', 'hkw_add_settings_page');
 add_shortcode('harmonie_table', 'hkw_render_shortcode');
 add_shortcode('harmonie_meteogramme', 'hkw_render_meteogram_shortcode');
+add_shortcode('harmonie_carte_region', 'hkw_render_region_map_shortcode');
+add_shortcode('harmonie_carte_ara', 'hkw_render_region_map_shortcode');
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'hkw_plugin_action_links');
 
 function hkw_register_assets() {
@@ -250,6 +252,42 @@ function hkw_render_meteogram_shortcode($atts) {
     return ob_get_clean();
 }
 
+function hkw_render_region_map_shortcode($atts) {
+    $atts = shortcode_atts(
+        array(
+            'couche' => 'temperature',
+            'hauteur' => '900',
+        ),
+        $atts,
+        'harmonie_carte_region'
+    );
+    $layer = sanitize_key($atts['couche']);
+    if ($layer === '') {
+        $layer = 'temperature';
+    }
+    $height = max(520, min(1200, absint($atts['hauteur'])));
+    $map = hkw_render_shortcode(
+        array(
+            'ville' => 'Lyon',
+            'code' => '69123',
+            'departement' => '69',
+            'heures' => '48',
+            'titre' => 'Carte météo Auvergne-Rhône-Alpes',
+            'selecteur' => 'non',
+            'onglet' => 'carte',
+            'carte_variable' => $layer,
+            'carte_latitude' => '45.45',
+            'carte_longitude' => '4.55',
+            'carte_zoom' => '4.2',
+            'carte_hauteur' => (string) $height,
+        )
+    );
+    return '<div class="hkw-region-map hkw-region-map-ara">'
+        . '<h2>Carte météo HARMONIE — Auvergne-Rhône-Alpes</h2>'
+        . $map
+        . '</div>';
+}
+
 function hkw_render_shortcode($atts) {
     $atts = shortcode_atts(
         array(
@@ -260,6 +298,11 @@ function hkw_render_shortcode($atts) {
             'titre' => '',
             'selecteur' => 'oui',
             'onglet' => 'general',
+            'carte_variable' => 'temperature',
+            'carte_latitude' => '',
+            'carte_longitude' => '',
+            'carte_zoom' => '1',
+            'carte_hauteur' => '1050',
         ),
         $atts,
         'harmonie_table'
@@ -292,6 +335,14 @@ function hkw_render_shortcode($atts) {
         'map' => 'map',
     );
     $initial_view = isset($view_aliases[$initial_view]) ? $view_aliases[$initial_view] : 'general';
+    $map_variable = sanitize_key($atts['carte_variable']);
+    if ($map_variable === '') {
+        $map_variable = 'temperature';
+    }
+    $map_latitude = is_numeric($atts['carte_latitude']) ? (float) $atts['carte_latitude'] : '';
+    $map_longitude = is_numeric($atts['carte_longitude']) ? (float) $atts['carte_longitude'] : '';
+    $map_zoom = max(1, min(16, (float) $atts['carte_zoom']));
+    $map_height = max(520, min(1400, absint($atts['carte_hauteur'])));
 
     $input_id = hkw_unique_identifier();
     $results_id = $input_id . '-results';
@@ -532,11 +583,16 @@ function hkw_render_shortcode($atts) {
                 class="hmap-card"
                 data-hmap-app
                 data-base-url="<?php echo esc_url(hkw_base_url()); ?>"
-                data-variable="temperature"
+                data-variable="<?php echo esc_attr($map_variable); ?>"
                 data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
                 data-animation="1"
                 data-module-version="<?php echo esc_attr(HKW_VERSION); ?>"
-                style="--hmap-height: 1050px"
+                <?php if ($map_latitude !== '' && $map_longitude !== '') : ?>
+                    data-focus-latitude="<?php echo esc_attr($map_latitude); ?>"
+                    data-focus-longitude="<?php echo esc_attr($map_longitude); ?>"
+                    data-focus-scale="<?php echo esc_attr($map_zoom); ?>"
+                <?php endif; ?>
+                style="--hmap-height: <?php echo esc_attr($map_height); ?>px"
             >
                 <p class="hkw-meta" data-hmap-run>Chargement du dernier run HARMONIE…</p>
 
