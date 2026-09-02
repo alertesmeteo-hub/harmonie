@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.15.0
+ * Version: 2.16.5
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,8 +14,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.15.0');
-define('HKW_RELEASE_DATE', '2026-08-23');
+define('HKW_VERSION', '2.16.5');
+define('HKW_RELEASE_DATE', '2026-09-02');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
     'HKW_DEFAULT_BASE_URL',
@@ -26,6 +26,7 @@ add_action('wp_enqueue_scripts', 'hkw_register_assets');
 add_action('admin_init', 'hkw_register_settings');
 add_action('admin_menu', 'hkw_add_settings_page');
 add_shortcode('harmonie_table', 'hkw_render_shortcode');
+add_shortcode('harmonie_meteogramme', 'hkw_render_meteogram_shortcode');
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'hkw_plugin_action_links');
 
 function hkw_register_assets() {
@@ -51,6 +52,19 @@ function hkw_register_assets() {
     wp_register_script(
         'hkw-map',
         plugin_dir_url(__FILE__) . 'assets/harmonie-map.js',
+        array(),
+        HKW_VERSION,
+        true
+    );
+    wp_register_style(
+        'hkw-meteogram',
+        plugin_dir_url(__FILE__) . 'assets/harmonie-meteogramme.css',
+        array(),
+        HKW_VERSION
+    );
+    wp_register_script(
+        'hkw-meteogram',
+        plugin_dir_url(__FILE__) . 'assets/harmonie-meteogramme.js',
         array(),
         HKW_VERSION,
         true
@@ -137,6 +151,7 @@ function hkw_render_admin_help_page() {
         <p><code>[harmonie_table code="75056" departement="75" ville="Paris" heures="48"]</code></p>
         <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
         <p><code>[harmonie_table onglet="carte"]</code> : ouvre directement sur l'onglet choisi — <code>general</code> (par défaut), <code>orages</code>, <code>neige</code> ou <code>carte</code>.</p>
+        <p><code>[harmonie_meteogramme code="66024" departement="66" ville="Le Boulou" heures="60"]</code> : météogramme seul pour une commune.</p>
         <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
         <p>Voir <a href="<?php echo esc_url(admin_url('options-general.php?page=harmonie-knmi')); ?>">Réglages</a> pour l’adresse du dossier de données national.</p>
     </div>
@@ -187,6 +202,52 @@ function hkw_unique_identifier() {
         return wp_unique_id('hkw-city-');
     }
     return 'hkw-city-' . wp_rand(1000, 999999);
+}
+
+function hkw_render_meteogram_shortcode($atts) {
+    $atts = shortcode_atts(
+        array(
+            'ville' => 'Perpignan',
+            'code' => '66136',
+            'departement' => '66',
+            'heures' => '60',
+            'titre' => 'Météogramme HARMONIE',
+        ),
+        $atts,
+        'harmonie_meteogramme'
+    );
+    $hours = max(1, min(60, absint($atts['heures'])));
+    $city_name = sanitize_text_field($atts['ville']);
+    if ($city_name === '') {
+        $city_name = 'Perpignan';
+    }
+    $city_code = hkw_commune_code($atts['code']);
+    $department = hkw_department_code($atts['departement']);
+    $title = trim(sanitize_text_field($atts['titre']));
+    if ($title === '') {
+        $title = 'Météogramme HARMONIE';
+    }
+
+    wp_enqueue_style('hkw-meteogram');
+    wp_enqueue_script('hkw-meteogram');
+
+    ob_start();
+    ?>
+    <section
+        class="hkw-meteogramme"
+        data-hkw-meteogramme
+        data-base-url="<?php echo esc_url(hkw_base_url()); ?>"
+        data-code="<?php echo esc_attr($city_code); ?>"
+        data-department="<?php echo esc_attr($department); ?>"
+        data-name="<?php echo esc_attr($city_name); ?>"
+        data-hours="<?php echo esc_attr($hours); ?>"
+        data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
+        data-title="<?php echo esc_attr($title); ?>"
+    >
+        <p class="hkw-mg-loading" role="status">Chargement du météogramme HARMONIE…</p>
+    </section>
+    <?php
+    return ob_get_clean();
 }
 
 function hkw_render_shortcode($atts) {

@@ -1,0 +1,424 @@
+(function () {
+    'use strict';
+
+    function ready(callback) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', callback, { once: true });
+        } else {
+            callback();
+        }
+    }
+
+    function fetchJson(url) {
+        return fetch(url).then(function (response) {
+            if (!response.ok) { throw new Error('HTTP ' + response.status); }
+            return response.json();
+        });
+    }
+
+    function svgNode(name, attributes, text) {
+        var node = document.createElementNS('http://www.w3.org/2000/svg', name);
+        Object.keys(attributes || {}).forEach(function (key) {
+            node.setAttribute(key, attributes[key]);
+        });
+        if (text !== undefined) { node.textContent = text; }
+        return node;
+    }
+
+    function htmlNode(name, className, text) {
+        var node = document.createElement(name);
+        if (className) { node.className = className; }
+        if (text !== undefined) { node.textContent = text; }
+        return node;
+    }
+
+    function linePath(points) {
+        if (points.length < 3) {
+            return points.map(function (point, index) {
+                return (index ? 'L' : 'M') + point[0].toFixed(2) + ',' + point[1].toFixed(2);
+            }).join(' ');
+        }
+        var path = 'M' + points[0][0].toFixed(2) + ',' + points[0][1].toFixed(2);
+        for (var index = 0; index < points.length - 1; index += 1) {
+            var p0 = points[index - 1] || points[index];
+            var p1 = points[index];
+            var p2 = points[index + 1];
+            var p3 = points[index + 2] || p2;
+            var c1x = p1[0] + (p2[0] - p0[0]) / 6;
+            var c1y = p1[1] + (p2[1] - p0[1]) / 6;
+            var c2x = p2[0] - (p3[0] - p1[0]) / 6;
+            var c2y = p2[1] - (p3[1] - p1[1]) / 6;
+            path += ' C' + c1x.toFixed(2) + ',' + c1y.toFixed(2)
+                + ' ' + c2x.toFixed(2) + ',' + c2y.toFixed(2)
+                + ' ' + p2[0].toFixed(2) + ',' + p2[1].toFixed(2);
+        }
+        return path;
+    }
+
+    function formatNumber(value, decimals) {
+        return Number(value).toLocaleString('fr-FR', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+
+    function makeFormatters(timezone) {
+        return {
+            hour: new Intl.DateTimeFormat('fr-FR', {
+                timeZone: timezone, hour: '2-digit', hourCycle: 'h23'
+            }),
+            day: new Intl.DateTimeFormat('fr-FR', {
+                timeZone: timezone, weekday: 'short', day: '2-digit', month: '2-digit'
+            }),
+            dayKey: new Intl.DateTimeFormat('fr-CA', {
+                timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit'
+            }),
+            full: new Intl.DateTimeFormat('fr-FR', {
+                timeZone: timezone, day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+            }),
+            dayHeading: new Intl.DateTimeFormat('fr-FR', {
+                timeZone: timezone, weekday: 'long', day: '2-digit', month: '2-digit'
+            })
+        };
+    }
+
+    function colorLegend(label, className) {
+        var item = htmlNode('span', 'hkw-mg-legend-item');
+        item.appendChild(htmlNode('i', 'hkw-mg-swatch ' + className));
+        item.appendChild(document.createTextNode(label));
+        return item;
+    }
+
+    function drawBase(svg, data, options) {
+        var width = 1050;
+        var height = options.height || 270;
+        var margin = { left: 68, right: 18, top: options.showDayHeaders ? 52 : 30, bottom: 34 };
+        var innerWidth = width - margin.left - margin.right;
+        var innerHeight = height - margin.top - margin.bottom;
+        var count = Math.max(2, data.length);
+        var x = function (index) { return margin.left + innerWidth * index / (count - 1); };
+        var y = function (value) {
+            return margin.top + innerHeight * (options.max - value) / Math.max(0.001, options.max - options.min);
+        };
+
+        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+        svg.setAttribute('role', 'img');
+        svg.setAttribute('aria-label', options.ariaLabel);
+
+        data.forEach(function (row, index) {
+            var nextX = index === data.length - 1 ? x(index) : x(index + 1);
+            var hour = Number(row.hour);
+            svg.appendChild(svgNode('rect', {
+                x: x(index), y: margin.top, width: Math.max(0, nextX - x(index)), height: innerHeight,
+                class: hour >= 7 && hour < 21 ? 'hkw-mg-day-band' : 'hkw-mg-night-band'
+            }));
+            if (index === 0 || row.dayKey !== data[index - 1].dayKey) {
+                svg.appendChild(svgNode('line', {
+                    x1: x(index), x2: x(index), y1: margin.top, y2: margin.top + innerHeight,
+                    class: 'hkw-mg-day-divider'
+                }));
+                if (options.showDayHeaders) {
+                    var heading = row.dayHeading.split(' ');
+                    var lastIndex = index;
+                    while (lastIndex + 1 < data.length && data[lastIndex + 1].dayKey === row.dayKey) { lastIndex += 1; }
+                    var headingX = (x(index) + x(lastIndex)) / 2;
+                    svg.appendChild(svgNode('text', { x: headingX, y: 18, 'text-anchor': 'middle', class: 'hkw-mg-day-heading' }, heading[0]));
+                    svg.appendChild(svgNode('text', { x: headingX, y: 37, 'text-anchor': 'middle', class: 'hkw-mg-day-heading hkw-mg-day-date' }, heading.slice(1).join(' ')));
+                }
+            }
+        });
+
+        var tickCount = 5;
+        for (var tick = 0; tick <= tickCount; tick += 1) {
+            var value = options.min + (options.max - options.min) * tick / tickCount;
+            var py = y(value);
+            svg.appendChild(svgNode('line', {
+                x1: margin.left, x2: width - margin.right, y1: py, y2: py,
+                class: 'hkw-mg-grid'
+            }));
+            svg.appendChild(svgNode('text', {
+                x: margin.left - 10, y: py + 4, 'text-anchor': 'end', class: 'hkw-mg-axis'
+            }, formatNumber(value, options.decimals || 0)));
+        }
+
+        data.forEach(function (row, index) {
+            if (index % 6 !== 0 && index !== data.length - 1) { return; }
+            var px = x(index);
+            svg.appendChild(svgNode('line', {
+                x1: px, x2: px, y1: margin.top, y2: margin.top + innerHeight,
+                class: 'hkw-mg-grid hkw-mg-grid-v'
+            }));
+            svg.appendChild(svgNode('text', {
+                x: px, y: height - 10,
+                'text-anchor': index === 0 ? 'start' : (index === data.length - 1 ? 'end' : 'middle'),
+                class: 'hkw-mg-axis'
+            }, row.hour + ' h'));
+        });
+
+        svg.appendChild(svgNode('rect', {
+            x: margin.left, y: margin.top, width: innerWidth, height: innerHeight,
+            class: 'hkw-mg-frame'
+        }));
+        svg.appendChild(svgNode('text', {
+            x: 18, y: margin.top + innerHeight / 2,
+            transform: 'rotate(-90 18 ' + (margin.top + innerHeight / 2) + ')',
+            'text-anchor': 'middle', class: 'hkw-mg-y-title'
+        }, options.yTitle));
+        svg.appendChild(svgNode('text', {
+            x: margin.left + 4, y: options.showDayHeaders ? 47 : 18, class: 'hkw-mg-panel-title'
+        }, options.title));
+
+        return { width: width, height: height, margin: margin, innerWidth: innerWidth,
+            innerHeight: innerHeight, x: x, y: y };
+    }
+
+    function tooltipTargets(svg, data, base, rows, tooltip, app) {
+        data.forEach(function (item, index) {
+            var values = rows.map(function (row) {
+                return row.label + ' : ' + row.format(item[row.key]);
+            }).join(' · ');
+            var target = svgNode('rect', {
+                x: Math.max(base.margin.left, base.x(index) - Math.max(5, base.innerWidth / data.length / 2)),
+                y: base.margin.top,
+                width: Math.max(10, base.innerWidth / data.length), height: base.innerHeight,
+                class: 'hkw-mg-hit', tabindex: '0',
+                'aria-label': item.dayLabel + ' ' + item.hour + ' h · ' + values
+            });
+            target.appendChild(svgNode('title', {}, item.dayLabel + ' ' + item.hour + ' h · ' + values));
+            function show(event) {
+                tooltip.textContent = item.dayLabel + ' ' + item.hour + ' h — ' + values;
+                tooltip.hidden = false;
+                var bounds = app.getBoundingClientRect();
+                tooltip.style.left = Math.min(Math.max(8, event.clientX - bounds.left + 12), Math.max(8, bounds.width - 245)) + 'px';
+                tooltip.style.top = Math.max(4, event.clientY - bounds.top + 12) + 'px';
+            }
+            target.addEventListener('pointerenter', show);
+            target.addEventListener('pointermove', show);
+            target.addEventListener('pointerleave', function () { tooltip.hidden = true; });
+            target.addEventListener('focus', function () { tooltip.textContent = item.dayLabel + ' ' + item.hour + ' h — ' + values; tooltip.style.left = '8px'; tooltip.style.top = '8px'; tooltip.hidden = false; });
+            target.addEventListener('blur', function () { tooltip.hidden = true; });
+            svg.appendChild(target);
+        });
+    }
+
+    function weatherIcon(row) {
+        var night = Number(row.hour) < 7 || Number(row.hour) >= 21;
+        if (row.precipitation >= 0.2) { return '🌧️'; }
+        if (row.condition >= 4 || row.cloud >= 85) { return '☁️'; }
+        if (row.condition >= 2 || row.cloud >= 25) { return night ? '☁️' : '🌤️'; }
+        return night ? '🌙' : '☀️';
+    }
+
+    function cardinalDirection(degrees) {
+        var labels = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+        var normalized = ((Number(degrees) % 360) + 360) % 360;
+        return labels[Math.round(normalized / 45) % 8];
+    }
+
+    function drawTemperature(container, data, tooltip, app) {
+        var values = data.map(function (row) { return row.temperature; });
+        var min = Math.floor(Math.min.apply(null, values) / 5) * 5;
+        var max = Math.ceil(Math.max.apply(null, values) / 5) * 5;
+        if (max === min) { max += 5; }
+        var svg = svgNode('svg', { class: 'hkw-mg-svg' });
+        var base = drawBase(svg, data, {
+            min: min, max: max, decimals: 0, title: 'Température à 2 m',
+            yTitle: 'Température (°C)', ariaLabel: 'Prévision horaire de température', showDayHeaders: true
+        });
+        var points = data.map(function (row, index) { return [base.x(index), base.y(row.temperature)]; });
+        var area = linePath(points) + ' L' + base.x(data.length - 1) + ',' + (base.margin.top + base.innerHeight)
+            + ' L' + base.x(0) + ',' + (base.margin.top + base.innerHeight) + ' Z';
+        svg.appendChild(svgNode('path', { d: area, class: 'hkw-mg-temp-area' }));
+        svg.appendChild(svgNode('path', { d: linePath(points), class: 'hkw-mg-temp-line' }));
+        var days = {};
+        data.forEach(function (row, index) {
+            if (!days[row.dayKey] || row.temperature > days[row.dayKey].temperature) {
+                days[row.dayKey] = { temperature: row.temperature, index: index };
+            }
+        });
+        Object.keys(days).forEach(function (key) {
+            var maximum = days[key];
+            svg.appendChild(svgNode('text', {
+                x: base.x(maximum.index), y: base.y(maximum.temperature) - 9,
+                'text-anchor': 'middle', class: 'hkw-mg-value'
+            }, maximum.temperature + '°'));
+        });
+        data.forEach(function (row, index) {
+            if (index % 6 !== 0) { return; }
+            var icon = svgNode('text', {
+                x: base.x(index), y: base.margin.top + 27, 'text-anchor': 'middle',
+                class: 'hkw-mg-weather-icon'
+            }, weatherIcon(row));
+            icon.appendChild(svgNode('title', {}, row.dayLabel + ' ' + row.hour + ' h'));
+            svg.appendChild(icon);
+        });
+        tooltipTargets(svg, data, base, [{ key: 'temperature', label: 'Température', format: function (v) { return v + ' °C'; } }], tooltip, app);
+        container.appendChild(svg);
+    }
+
+    function drawCloudRain(container, data, tooltip, app) {
+        var svg = svgNode('svg', { class: 'hkw-mg-svg' });
+        var base = drawBase(svg, data, {
+            min: 0, max: 100, decimals: 0, title: 'Précipitations et couverture nuageuse',
+            yTitle: 'Nébulosité (%)', ariaLabel: 'Prévision horaire de nébulosité et de précipitations'
+        });
+        var slot = base.innerWidth / Math.max(1, data.length - 1);
+        var cloudSeries = [
+            { key: 'cloudLow', className: 'hkw-mg-cloud-low' },
+            { key: 'cloudMid', className: 'hkw-mg-cloud-mid' },
+            { key: 'cloudHigh', className: 'hkw-mg-cloud-high' }
+        ];
+        cloudSeries.forEach(function (series) {
+            var points = data.map(function (row, index) { return [base.x(index), base.y(row[series.key])]; });
+            svg.appendChild(svgNode('path', { d: linePath(points), class: 'hkw-mg-cloud-layer ' + series.className }));
+        });
+        data.forEach(function (row, index) {
+            if (row.precipitation > 0) {
+                var rainHeight = Math.min(base.innerHeight, row.precipitation * 18);
+                svg.appendChild(svgNode('rect', {
+                    x: base.x(index) - Math.max(2, slot * .22),
+                    y: base.margin.top + base.innerHeight - rainHeight,
+                    width: Math.max(4, slot * .44), height: rainHeight,
+                    class: 'hkw-mg-rain-bar'
+                }));
+            }
+        });
+        var total = data.reduce(function (sum, row) { return sum + Math.max(0, row.precipitation); }, 0);
+        svg.appendChild(svgNode('text', {
+            x: base.width - base.margin.right, y: 18, 'text-anchor': 'end', class: 'hkw-mg-panel-note'
+        }, total < .05 ? 'Aucune pluie prévue' : 'Cumul : ' + formatNumber(total, 1) + ' mm'));
+        tooltipTargets(svg, data, base, [
+            { key: 'cloudLow', label: 'Nuages bas', format: function (v) { return Math.round(v) + ' %'; } },
+            { key: 'cloudMid', label: 'Nuages moyens', format: function (v) { return Math.round(v) + ' %'; } },
+            { key: 'cloudHigh', label: 'Nuages élevés', format: function (v) { return Math.round(v) + ' %'; } },
+            { key: 'precipitation', label: 'Pluie', format: function (v) { return formatNumber(v, 1) + ' mm'; } }
+        ], tooltip, app);
+        container.appendChild(svg);
+    }
+
+    function drawWind(container, data, tooltip, app) {
+        var values = data.reduce(function (all, row) { all.push(row.wind, row.gust); return all; }, [0]);
+        var max = Math.max(10, Math.ceil(Math.max.apply(null, values) / 10) * 10);
+        var svg = svgNode('svg', { class: 'hkw-mg-svg' });
+        var base = drawBase(svg, data, {
+            min: 0, max: max, decimals: 0, title: 'Vent à 10 m',
+            yTitle: 'Vitesse (km/h)', ariaLabel: 'Prévision horaire du vent moyen et des rafales'
+        });
+        var windPoints = data.map(function (row, index) { return [base.x(index), base.y(row.wind)]; });
+        var gustPoints = data.map(function (row, index) { return [base.x(index), base.y(row.gust)]; });
+        svg.appendChild(svgNode('path', { d: linePath(windPoints), class: 'hkw-mg-wind-line' }));
+        svg.appendChild(svgNode('path', { d: linePath(gustPoints), class: 'hkw-mg-gust-line' }));
+        data.forEach(function (row, index) {
+            if (index % 4 !== 0) { return; }
+            svg.appendChild(svgNode('text', {
+                x: base.x(index), y: base.margin.top + 15,
+                transform: 'rotate(' + (row.direction + 180) + ' ' + base.x(index) + ' ' + (base.margin.top + 10) + ')',
+                'text-anchor': 'middle', class: 'hkw-mg-arrow'
+            }, '↑'));
+        });
+        tooltipTargets(svg, data, base, [
+            { key: 'wind', label: 'Vent', format: function (v) { return v + ' km/h'; } },
+            { key: 'gust', label: 'Rafales', format: function (v) { return v + ' km/h'; } },
+            { key: 'direction', label: 'Direction', format: function (v) { return cardinalDirection(v) + ' (' + Math.round(v) + '°)'; } }
+        ], tooltip, app);
+        container.appendChild(svg);
+    }
+
+    function render(app, index, department) {
+        var code = app.dataset.code;
+        var hours = Math.max(1, Math.min(60, parseInt(app.dataset.hours || '60', 10)));
+        var timezone = app.dataset.timezone || 'Europe/Paris';
+        var format = makeFormatters(timezone);
+        var commune = (department.communes || []).find(function (row) { return row[0] === code; });
+        if (!commune) { throw new Error('commune ' + code + ' absente du département'); }
+        var pointId = Number(commune[6]);
+        var point = department.points && department.points[pointId];
+        var columns = department.columns && department.columns.values ? department.columns.values : [];
+        var column = {};
+        columns.forEach(function (name, position) { column[name] = position; });
+        function value(values, name, fallback) {
+            var position = Object.prototype.hasOwnProperty.call(column, name) ? column[name] : fallback;
+            var result = values[position];
+            return result === null || result === undefined || !isFinite(Number(result)) ? 0 : Number(result);
+        }
+        var data = (department.forecast || []).slice(0, hours).map(function (step) {
+            var date = new Date(step[0]);
+            var values = step[1][pointId];
+            return {
+                date: date,
+                dayKey: format.dayKey.format(date),
+                dayLabel: format.day.format(date),
+                dayHeading: format.dayHeading.format(date),
+                hour: format.hour.format(date).replace(/\s*h$/i, ''),
+                temperature: value(values, 'temperature_c', 0),
+                precipitation: value(values, 'precipitation_mm', 2),
+                cloud: Math.max(0, Math.min(100, value(values, 'cloud_cover_pct', 3))),
+                cloudLow: Math.max(0, Math.min(100, value(values, 'cloud_low_pct', -1))),
+                cloudMid: Math.max(0, Math.min(100, value(values, 'cloud_mid_pct', -1))),
+                cloudHigh: Math.max(0, Math.min(100, value(values, 'cloud_high_pct', -1))),
+                wind: value(values, 'wind_speed_kmh', 4),
+                direction: value(values, 'wind_direction_deg', 5),
+                gust: value(values, 'wind_gust_kmh', 6),
+                condition: value(values, 'condition_code', 7)
+            };
+        });
+        if (!data.length) { throw new Error('aucune échéance disponible'); }
+
+        app.replaceChildren();
+        var heading = htmlNode('h2', 'hkw-mg-title', (app.dataset.title || 'Météogramme HARMONIE') + ' — ' + commune[1]);
+        app.appendChild(heading);
+        var subtitle = commune[1] + ' (' + commune[0] + ') · point HARMONIE '
+            + formatNumber(point[1], 3) + '° N / ' + formatNumber(point[2], 3) + '° E'
+            + ' · altitude modèle ' + formatNumber(point[3], 0) + ' m'
+            + ' · du ' + format.day.format(data[0].date) + ' au ' + format.day.format(data[data.length - 1].date);
+        app.appendChild(htmlNode('p', 'hkw-mg-subtitle', subtitle));
+        var legend = htmlNode('div', 'hkw-mg-legend');
+        legend.appendChild(colorLegend('Température', 'is-temperature'));
+        legend.appendChild(colorLegend('Précipitations', 'is-rain'));
+        legend.appendChild(colorLegend('Nuages bas', 'is-cloud-low'));
+        legend.appendChild(colorLegend('Nuages moyens', 'is-cloud-mid'));
+        legend.appendChild(colorLegend('Nuages élevés', 'is-cloud-high'));
+        legend.appendChild(colorLegend('Vent', 'is-wind'));
+        legend.appendChild(colorLegend('Rafales', 'is-gust'));
+        app.appendChild(legend);
+
+        var tooltip = htmlNode('div', 'hkw-mg-tooltip');
+        tooltip.hidden = true;
+        tooltip.setAttribute('role', 'tooltip');
+        app.appendChild(tooltip);
+
+        var temperature = htmlNode('div', 'hkw-mg-panel');
+        var cloudRain = htmlNode('div', 'hkw-mg-panel');
+        var wind = htmlNode('div', 'hkw-mg-panel');
+        app.appendChild(temperature); app.appendChild(cloudRain); app.appendChild(wind);
+        drawTemperature(temperature, data, tooltip, app);
+        drawCloudRain(cloudRain, data, tooltip, app);
+        drawWind(wind, data, tooltip, app);
+
+        var model = index.model || {};
+        var source = 'Source exclusive : alertesmeteo-hub/harmonie, branche data · '
+            + (model.name || 'KNMI HARMONIE-AROME Cy43 P3')
+            + (model.source_file ? ' · run ' + model.source_file : '')
+            + (model.run_time ? ' (' + format.full.format(new Date(model.run_time)) + ')' : '');
+        app.appendChild(htmlNode('p', 'hkw-mg-source', source));
+    }
+
+    function init(app) {
+        var base = (app.dataset.baseUrl || '').replace(/\/+$/, '');
+        var department = app.dataset.department || '66';
+        if (!base) { app.textContent = 'Adresse des données HARMONIE non configurée.'; return; }
+        Promise.all([
+            fetchJson(base + '/index.json'),
+            fetchJson(base + '/departements/' + encodeURIComponent(department) + '.json')
+        ]).then(function (payloads) {
+            render(app, payloads[0], payloads[1]);
+        }).catch(function (error) {
+            app.replaceChildren(htmlNode('p', 'hkw-mg-error', 'Météogramme indisponible : ' + error.message));
+        });
+    }
+
+    ready(function () {
+        document.querySelectorAll('[data-hkw-meteogramme]').forEach(init);
+    });
+}());

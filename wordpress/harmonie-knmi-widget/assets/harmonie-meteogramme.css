@@ -1,0 +1,97 @@
+.hkw-meteogramme {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    color: #111827;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #fff;
+    position: relative;
+}
+
+.hkw-mg-title {
+    margin: 0 0 3px;
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 700;
+}
+
+.hkw-mg-subtitle,
+.hkw-mg-source {
+    margin: 0;
+    color: #7b8794;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.hkw-mg-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 16px 0 4px;
+    font-size: 13px;
+}
+
+.hkw-mg-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hkw-mg-swatch {
+    display: inline-block;
+    width: 18px;
+    height: 3px;
+}
+
+.hkw-mg-swatch.is-temperature { background: #2e9b45; }
+.hkw-mg-swatch.is-rain { background: #f2b632; }
+.hkw-mg-swatch.is-cloud-low { background: #475569; }
+.hkw-mg-swatch.is-cloud-mid { background: #8b95a5; }
+.hkw-mg-swatch.is-cloud-high { background: #c1c8d2; }
+.hkw-mg-swatch.is-wind { background: #ee74ad; }
+.hkw-mg-swatch.is-gust { background: #e53935; }
+
+.hkw-mg-panel { width: 100%; margin: 0 0 5px; }
+.hkw-mg-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.hkw-mg-frame { fill: none; stroke: #d8dde2; stroke-width: 1; }
+.hkw-mg-grid { stroke: #d9dde1; stroke-width: 1; }
+.hkw-mg-grid-v { opacity: .62; }
+.hkw-mg-day-band { fill: #edf8c5; }
+.hkw-mg-night-band { fill: #fafafa; }
+.hkw-mg-day-divider { stroke: #475569; stroke-width: 1.15; }
+.hkw-mg-day-heading { fill: #111827; font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; }
+.hkw-mg-day-date { fill: #b91c1c; font-size: 16px; font-weight: 800; }
+.hkw-mg-axis,
+.hkw-mg-y-title,
+.hkw-mg-panel-title,
+.hkw-mg-panel-note,
+.hkw-mg-value,
+.hkw-mg-arrow { fill: #111827; font-family: Arial, Helvetica, sans-serif; }
+.hkw-mg-axis { font-size: 12px; }
+.hkw-mg-y-title { font-size: 13px; }
+.hkw-mg-panel-title,
+.hkw-mg-panel-note { font-size: 12px; }
+.hkw-mg-value { font-size: 12px; }
+.hkw-mg-arrow { font-size: 19px; font-weight: 700; }
+.hkw-mg-weather-icon { font-size: 25px; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
+.hkw-mg-temp-area { fill: #2e9b45; opacity: .14; }
+.hkw-mg-temp-line { fill: none; stroke: #2e9b45; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.hkw-mg-cloud-layer { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.hkw-mg-cloud-low { stroke: #475569; }
+.hkw-mg-cloud-mid { stroke: #8b95a5; }
+.hkw-mg-cloud-high { stroke: #c1c8d2; }
+.hkw-mg-rain-bar { fill: #f2b632; }
+.hkw-mg-wind-line { fill: none; stroke: #ee74ad; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.hkw-mg-gust-line { fill: none; stroke: #e53935; stroke-width: 2.7; stroke-linejoin: round; stroke-linecap: round; }
+.hkw-mg-hit { fill: transparent; stroke: none; cursor: crosshair; }
+.hkw-mg-tooltip { position: absolute; z-index: 10; max-width: 230px; padding: 7px 9px; border: 1px solid #64748b; border-radius: 4px; background: rgba(15, 23, 42, .94); color: #fff; font-size: 12px; line-height: 1.35; pointer-events: none; box-shadow: 0 3px 10px rgba(15, 23, 42, .25); }
+.hkw-mg-source { margin-top: 3px; }
+.hkw-mg-loading,
+.hkw-mg-error { padding: 18px; background: #f6f7f8; color: #45505c; }
+.hkw-mg-error { color: #a12622; }
+
+@media (max-width: 620px) {
+    .hkw-mg-title { font-size: 18px; }
+    .hkw-mg-subtitle, .hkw-mg-source { font-size: 11px; }
+    .hkw-mg-legend { gap: 6px 10px; font-size: 12px; }
+}

@@ -36,7 +36,7 @@ from harmonie_maps import DEFAULT_BOUNDS, HarmonieMapRenderer
 
 
 LOGGER = logging.getLogger("harmonie.france")
-NATIONAL_PIPELINE_VERSION = "3.0.5"
+NATIONAL_PIPELINE_VERSION = "3.0.6"
 MAP_WIDTH = 2000
 MAP_HEIGHT = 1500
 # Sous-ensemble de VALUE_COLUMNS retenu comme couche carte — cf. harmonie_maps.LAYER_SPECS.
@@ -130,6 +130,11 @@ VALUE_COLUMNS = (
     "geopotential_925_m",
     "geopotential_900_m",
     "geopotential_850_m",
+    # Météogramme — étages nuageux, ajoutés en fin de schéma pour préserver
+    # les positions historiques des colonnes déjà publiées.
+    "cloud_low_pct",
+    "cloud_mid_pct",
+    "cloud_high_pct",
 )
 
 PRESSURE_LEVELS = (925, 850, 700, 500, 300)
@@ -1481,6 +1486,9 @@ def compact_rows(
         "temperature_c",
         "humidity_pct",
         "cloud_cover_pct",
+        "cloud_low_pct",
+        "cloud_mid_pct",
+        "cloud_high_pct",
         "wind_speed_kmh",
         "wind_direction_deg",
         "wind_gust_kmh",

@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.15.0
+Stable tag: 2.16.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,7 +29,41 @@ Exemple avec Paris comme commune affichée au chargement :
 Exemple limité à une seule ville, sans champ de recherche :
 `[harmonie_table code="66136" departement="66" ville="Perpignan" heures="48" selecteur="non"]`
 
+Météogramme seul pour Le Boulou :
+`[harmonie_meteogramme code="66024" departement="66" ville="Le Boulou" heures="60"]`
+
+Météogramme seul pour Amiens :
+`[harmonie_meteogramme code="80021" departement="80" ville="Amiens" heures="60"]`
+
 == Changelog ==
+
+= 2.16.5 =
+* Couverture nuageuse séparée en trois étages : nuages bas, moyens et élevés, chacun de 0 à 100 %.
+* Le pipeline national exporte désormais `cloud_low_pct`, `cloud_mid_pct` et `cloud_high_pct` dans les fichiers départementaux.
+
+= 2.16.4 =
+* Météogramme élargi à 1 400 px et dates journalières agrandies, centrées et mises en évidence.
+* Direction du vent représentée par des flèches orientées ; détails cardinaux conservés dans les infobulles.
+* Courbe et légende de température en vert.
+
+= 2.16.3 =
+* Directions du vent affichées en points cardinaux français (N, NE, E, SE, S, SO, O, NO).
+* Rafales en rouge et pictogrammes météo en couleur.
+* Panneaux du météogramme plus hauts ; nébulosité limitée et libellée de 0 à 100 %.
+
+= 2.16.2 =
+* Infobulles opérationnelles à la souris et au clavier.
+* Courbes de température, vent et rafales lissées.
+* Nébulosité corrigée en aplat horaire de 0 à 100 %.
+* Ajout des dates, des séparations jour/nuit et des icônes météo.
+
+= 2.16.1 =
+* Le shortcode `[harmonie_meteogramme]` utilise désormais un composant autonome fidèle au météogramme de référence.
+* Séparation des styles et scripts du météogramme pour préserver le tableau HARMONIE existant.
+
+= 2.16.0 =
+* Nouveau shortcode `[harmonie_meteogramme]` : températures, nébulosité, précipitations, vent moyen et rafales pour la commune choisie.
+* Ajout du diagramme de nébulosité aux graphiques HARMONIE.
 
 = 2.15.0 =
 * Nouvel attribut de shortcode `onglet` pour ouvrir directement sur un onglet précis : `[harmonie_table onglet="carte"]` (valeurs : `general`, `orages`, `neige`, `carte`).
