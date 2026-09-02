@@ -103,7 +103,7 @@
     function drawBase(svg, data, options) {
         var width = 1050;
         var height = options.height || 270;
-        var margin = { left: 68, right: options.rightAxis ? 60 : 18, top: options.showDayHeaders ? 52 : 30, bottom: 34 };
+        var margin = { left: 68, right: 60, top: options.showDayHeaders ? 52 : 30, bottom: 34 };
         var innerWidth = width - margin.left - margin.right;
         var innerHeight = height - margin.top - margin.bottom;
         var count = Math.max(2, data.length);
