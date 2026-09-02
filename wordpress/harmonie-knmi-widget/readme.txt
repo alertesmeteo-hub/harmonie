@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.16.12
+Stable tag: 2.16.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,9 @@ Météogramme seul pour Amiens :
 `[harmonie_meteogramme code="80021" departement="80" ville="Amiens" heures="60"]`
 
 == Changelog ==
+
+= 2.16.13 =
+* Titre « Prévisions pour [ville] à 3 jours » agrandi à 32 px sur ordinateur et 24 px sur téléphone.
 
 = 2.16.12 =
 * Le champ « Prévisions météo pour une autre ville : » est placé à droite du titre sur ordinateur et passe sous le titre sur petit écran.

@@ -10,9 +10,10 @@
 
 .hkw-mg-title {
     margin: 0 0 3px;
-    font-size: 22px;
+    font-size: 32px;
     line-height: 1.2;
     font-weight: 700;
+    letter-spacing: -.4px;
 }
 .hkw-mg-title-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px 28px; margin: 0 0 15px; }
 .hkw-mg-title-bar .hkw-mg-title { flex: 0 1 auto; margin: 0; }
@@ -124,7 +125,7 @@
 }
 
 @media (max-width: 620px) {
-    .hkw-mg-title { font-size: 18px; }
+    .hkw-mg-title { font-size: 24px; }
     .hkw-mg-subtitle, .hkw-mg-source { font-size: 11px; }
     .hkw-mg-legend { gap: 6px 10px; font-size: 12px; }
     .hkw-meteogramme { max-width: 100%; overflow: hidden; }
