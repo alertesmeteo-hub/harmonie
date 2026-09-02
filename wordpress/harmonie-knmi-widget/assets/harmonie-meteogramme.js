@@ -62,6 +62,14 @@
         });
     }
 
+    function smoothSeries(values) {
+        return values.map(function (value, index) {
+            var previous = index > 0 ? values[index - 1] : value;
+            var next = index < values.length - 1 ? values[index + 1] : value;
+            return (previous + value * 2 + next) / 4;
+        });
+    }
+
     function makeFormatters(timezone) {
         return {
             hour: new Intl.DateTimeFormat('fr-FR', {
@@ -232,7 +240,8 @@
             min: min, max: max, decimals: 0, title: 'Température à 2 m',
             yTitle: 'Température (°C)', ariaLabel: 'Prévision horaire de température', showDayHeaders: true
         });
-        var points = data.map(function (row, index) { return [base.x(index), base.y(row.temperature)]; });
+        var smoothedTemperatures = smoothSeries(values);
+        var points = smoothedTemperatures.map(function (value, index) { return [base.x(index), base.y(value)]; });
         var area = linePath(points) + ' L' + base.x(data.length - 1) + ',' + (base.margin.top + base.innerHeight)
             + ' L' + base.x(0) + ',' + (base.margin.top + base.innerHeight) + ' Z';
         svg.appendChild(svgNode('path', { d: area, class: 'hkw-mg-temp-area' }));
@@ -343,7 +352,7 @@
         var max = Math.max(10, Math.ceil(Math.max.apply(null, values) / 10) * 10);
         var svg = svgNode('svg', { class: 'hkw-mg-svg' });
         var base = drawBase(svg, data, {
-            min: 0, max: max, decimals: 0, title: 'Vent à 10 m',
+            min: 0, max: max, decimals: 0, title: 'Rafales et vent moyen',
             yTitle: 'Vitesse (km/h)', ariaLabel: 'Prévision horaire du vent moyen et des rafales'
         });
         var windPoints = data.map(function (row, index) { return [base.x(index), base.y(row.wind)]; });
@@ -414,16 +423,6 @@
             + ' · altitude modèle ' + formatNumber(point[3], 0) + ' m'
             + ' · du ' + format.day.format(data[0].date) + ' au ' + format.day.format(data[data.length - 1].date);
         app.appendChild(htmlNode('p', 'hkw-mg-subtitle', subtitle));
-        var legend = htmlNode('div', 'hkw-mg-legend');
-        legend.appendChild(colorLegend('Température', 'is-temperature'));
-        legend.appendChild(colorLegend('Précipitations', 'is-rain'));
-        legend.appendChild(colorLegend('Nuages bas', 'is-cloud-low'));
-        legend.appendChild(colorLegend('Nuages moyens', 'is-cloud-mid'));
-        legend.appendChild(colorLegend('Nuages élevés', 'is-cloud-high'));
-        legend.appendChild(colorLegend('Vent', 'is-wind'));
-        legend.appendChild(colorLegend('Rafales', 'is-gust'));
-        app.appendChild(legend);
-
         var tooltip = htmlNode('div', 'hkw-mg-tooltip');
         tooltip.hidden = true;
         tooltip.setAttribute('role', 'tooltip');

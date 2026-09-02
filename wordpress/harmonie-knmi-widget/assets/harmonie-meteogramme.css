@@ -1,6 +1,6 @@
 .hkw-meteogramme {
     width: 100%;
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
     color: #111827;
     font-family: Arial, Helvetica, sans-serif;
@@ -44,14 +44,14 @@
 }
 
 .hkw-mg-swatch.is-temperature { background: #2e9b45; }
-.hkw-mg-swatch.is-rain { background: #f2b632; }
+.hkw-mg-swatch.is-rain { background: #1677d2; }
 .hkw-mg-swatch.is-cloud-low { background: #475569; }
 .hkw-mg-swatch.is-cloud-mid { background: #8b95a5; }
 .hkw-mg-swatch.is-cloud-high { background: #c1c8d2; }
 .hkw-mg-swatch.is-wind { background: #ee74ad; }
 .hkw-mg-swatch.is-gust { background: #e53935; }
 
-.hkw-mg-panel { width: 100%; margin: 0 0 5px; }
+.hkw-mg-panel { width: 100%; margin: 0 0 5px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
 .hkw-mg-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .hkw-mg-frame { fill: none; stroke: #d8dde2; stroke-width: 1; }
 .hkw-mg-grid { stroke: #d9dde1; stroke-width: 1; }
@@ -77,7 +77,7 @@
 .hkw-mg-temp-area { fill: #2e9b45; opacity: .14; }
 .hkw-mg-temp-line { fill: none; stroke: #2e9b45; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .hkw-mg-cloud-shape { fill: #7d838b; stroke: #666d75; stroke-width: .5; }
-.hkw-mg-rain-bar { fill: #f2b632; }
+.hkw-mg-rain-bar { fill: #1677d2; }
 .hkw-mg-wind-line { fill: none; stroke: #ee74ad; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .hkw-mg-gust-line { fill: none; stroke: #e53935; stroke-width: 2.7; stroke-linejoin: round; stroke-linecap: round; }
 .hkw-mg-hit { fill: transparent; stroke: none; cursor: crosshair; }
@@ -91,4 +91,8 @@
     .hkw-mg-title { font-size: 18px; }
     .hkw-mg-subtitle, .hkw-mg-source { font-size: 11px; }
     .hkw-mg-legend { gap: 6px 10px; font-size: 12px; }
+    .hkw-meteogramme { max-width: 100%; overflow: hidden; }
+    .hkw-mg-panel { border-bottom: 1px solid #e5e7eb; }
+    .hkw-mg-svg { width: 900px; max-width: none; }
+    .hkw-mg-panel::after { content: "Glissez horizontalement pour voir les prochaines heures →"; display: block; position: sticky; left: 8px; width: max-content; padding: 3px 0 6px; color: #64748b; font-size: 11px; }
 }
