@@ -412,7 +412,7 @@
     }
 
     function activityStatus(score) {
-        if (score >= 8) { return { label: 'Très conseillé', className: 'is-good', description: 'Conditions très favorables prévues par HARMONIE.' }; }
+        if (score >= 8) { return { label: 'Très conseillé', className: 'is-good', description: 'Conditions très favorables prévues.' }; }
         if (score >= 6) { return { label: 'Conseillé', className: 'is-good', description: 'Conditions globalement favorables, avec quelques variations possibles.' }; }
         if (score >= 4) { return { label: 'Mitigé', className: 'is-medium', description: 'Conditions praticables, mais certains paramètres demandent de la prudence.' }; }
         return { label: 'Déconseillé', className: 'is-bad', description: 'Conditions peu favorables sur les prochaines 24 heures.' };
