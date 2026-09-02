@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.16.14
+Stable tag: 2.16.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,11 @@ Météogramme seul pour Amiens :
 `[harmonie_meteogramme code="80021" departement="80" ville="Amiens" heures="60"]`
 
 == Changelog ==
+
+= 2.16.15 =
+* Mention `alertesmeteo-hub/harmonie, branche data` retirée de la ligne source.
+* Sur téléphone, les trois graphiques défilent désormais ensemble dans un seul conteneur horizontal.
+* Bouton « Afficher » remplacé par « OK » et ajout d'un bouton de géolocalisation.
 
 = 2.16.14 =
 * Cartes d'activités sur fond vert clair assorti au météogramme.

@@ -485,13 +485,40 @@
         input.placeholder = 'Nom de ville ou code postal';
         input.autocomplete = 'off';
         input.setAttribute('aria-label', 'Nom de ville ou code postal');
-        var button = htmlNode('button', 'hkw-mg-city-search-button', 'Afficher');
+        var button = htmlNode('button', 'hkw-mg-city-search-button', 'OK');
         button.type = 'submit';
+        var locateButton = htmlNode('button', 'hkw-mg-city-locate-button', '📍 Géolocalisation');
+        locateButton.type = 'button';
         var status = htmlNode('p', 'hkw-mg-city-search-status');
         status.setAttribute('role', 'status');
         status.setAttribute('aria-live', 'polite');
-        controls.appendChild(input); controls.appendChild(button);
+        controls.appendChild(input); controls.appendChild(button); controls.appendChild(locateButton);
         form.appendChild(label); form.appendChild(controls); form.appendChild(status);
+
+        function setBusy(busy) {
+            button.disabled = busy;
+            locateButton.disabled = busy;
+        }
+
+        function loadCandidate(candidate) {
+            var departmentCode = String(candidate.codeDepartement).toUpperCase();
+            var departmentInfo = index.departments[departmentCode];
+            var departmentFile = departmentInfo.file || ('departements/' + departmentCode + '.json');
+            status.textContent = 'Chargement des prévisions pour ' + candidate.nom + '…';
+            return fetchJson(baseUrl + '/' + departmentFile.replace(/^\/+/, '')).then(function (department) {
+                app.dataset.code = String(candidate.code);
+                app.dataset.department = departmentCode;
+                app.dataset.name = candidate.nom;
+                render(app, index, department);
+            });
+        }
+
+        function supportedCandidate(payload) {
+            var candidates = Array.isArray(payload) ? payload : (payload ? [payload] : []);
+            return candidates.find(function (item) {
+                return index.departments && index.departments[String(item.codeDepartement || '').toUpperCase()];
+            });
+        }
 
         form.addEventListener('submit', function (event) {
             event.preventDefault();
@@ -500,7 +527,7 @@
                 status.textContent = 'Saisissez au moins deux lettres ou un code postal.';
                 return;
             }
-            button.disabled = true;
+            setBusy(true);
             status.textContent = 'Recherche de la commune…';
             var parameters = new URLSearchParams({
                 fields: 'nom,code,codeDepartement,population',
@@ -510,26 +537,42 @@
             else { parameters.set('nom', query); }
             fetchJson('https://geo.api.gouv.fr/communes?' + parameters.toString())
                 .then(function (payload) {
-                    var candidates = Array.isArray(payload) ? payload : [];
-                    var candidate = candidates.find(function (item) {
-                        return index.departments && index.departments[String(item.codeDepartement || '').toUpperCase()];
-                    });
+                    var candidate = supportedCandidate(payload);
                     if (!candidate) { throw new Error('commune introuvable dans la couverture HARMONIE'); }
-                    var departmentCode = String(candidate.codeDepartement).toUpperCase();
-                    var departmentInfo = index.departments[departmentCode];
-                    var departmentFile = departmentInfo.file || ('departements/' + departmentCode + '.json');
-                    status.textContent = 'Chargement des prévisions pour ' + candidate.nom + '…';
-                    return fetchJson(baseUrl + '/' + departmentFile.replace(/^\/+/, '')).then(function (department) {
-                        app.dataset.code = String(candidate.code);
-                        app.dataset.department = departmentCode;
-                        app.dataset.name = candidate.nom;
-                        render(app, index, department);
-                    });
+                    return loadCandidate(candidate);
                 })
                 .catch(function (error) {
                     status.textContent = 'Recherche impossible : ' + error.message + '.';
-                    button.disabled = false;
+                    setBusy(false);
                 });
+        });
+
+        locateButton.addEventListener('click', function () {
+            if (!navigator.geolocation) {
+                status.textContent = 'La géolocalisation n’est pas disponible sur cet appareil.';
+                return;
+            }
+            setBusy(true);
+            status.textContent = 'Recherche de votre position…';
+            navigator.geolocation.getCurrentPosition(function (position) {
+                var parameters = new URLSearchParams({
+                    lat: String(position.coords.latitude), lon: String(position.coords.longitude),
+                    fields: 'nom,code,codeDepartement,population', format: 'json'
+                });
+                fetchJson('https://geo.api.gouv.fr/communes?' + parameters.toString())
+                    .then(function (payload) {
+                        var candidate = supportedCandidate(payload);
+                        if (!candidate) { throw new Error('commune introuvable pour cette position'); }
+                        return loadCandidate(candidate);
+                    })
+                    .catch(function (error) {
+                        status.textContent = 'Géolocalisation impossible : ' + error.message + '.';
+                        setBusy(false);
+                    });
+            }, function () {
+                status.textContent = 'Géolocalisation refusée ou position indisponible.';
+                setBusy(false);
+            }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 });
         });
         return form;
     }
@@ -594,15 +637,16 @@
         var temperature = htmlNode('div', 'hkw-mg-panel');
         var cloudRain = htmlNode('div', 'hkw-mg-panel');
         var wind = htmlNode('div', 'hkw-mg-panel');
-        app.appendChild(temperature); app.appendChild(cloudRain); app.appendChild(wind);
+        var panels = htmlNode('div', 'hkw-mg-panels-scroll');
+        panels.appendChild(temperature); panels.appendChild(cloudRain); panels.appendChild(wind);
+        app.appendChild(panels);
         drawTemperature(temperature, data, tooltip, app);
         drawCloudRain(cloudRain, data, tooltip, app);
         drawWind(wind, data, tooltip, app);
         renderActivities(app, data);
 
         var model = index.model || {};
-        var source = 'Source exclusive : alertesmeteo-hub/harmonie, branche data · '
-            + (model.name || 'KNMI HARMONIE-AROME Cy43 P3')
+        var source = 'Source : ' + (model.name || 'KNMI HARMONIE-AROME Cy43 P3')
             + (model.source_file ? ' · run ' + model.source_file : '')
             + (model.run_time ? ' (' + format.full.format(new Date(model.run_time)) + ')' : '');
         app.appendChild(htmlNode('p', 'hkw-mg-source', source));

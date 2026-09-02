@@ -19,11 +19,13 @@
 .hkw-mg-title-bar .hkw-mg-title { flex: 0 1 auto; margin: 0 0 0 34px; transform: translateY(-8px); font-size: 38px; }
 .hkw-mg-city-search { display: grid; grid-template-columns: max-content minmax(240px, 430px); align-items: center; flex: 1 1 680px; justify-content: end; gap: 7px 12px; margin: 0; }
 .hkw-mg-city-search label { color: #1f2937; font-size: 14px; font-weight: 700; }
-.hkw-mg-city-search-controls { display: flex; gap: 8px; }
+.hkw-mg-city-search-controls { display: flex; flex-wrap: wrap; gap: 8px; }
 .hkw-mg-city-search-input { min-width: 0; flex: 1; padding: 9px 12px; border: 1px solid #aeb8c5; border-radius: 8px; background: #fff; color: #111827; font: inherit; }
 .hkw-mg-city-search-input:focus { outline: 2px solid #2e9b45; outline-offset: 1px; border-color: #2e9b45; }
 .hkw-mg-city-search-button { padding: 9px 16px; border: 0; border-radius: 8px; background: #1f7a38; color: #fff; font-weight: 700; cursor: pointer; }
 .hkw-mg-city-search-button:disabled { opacity: .55; cursor: wait; }
+.hkw-mg-city-locate-button { padding: 9px 12px; border: 1px solid #1f7a38; border-radius: 8px; background: #fff; color: #1f7a38; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.hkw-mg-city-locate-button:disabled { opacity: .55; cursor: wait; }
 .hkw-mg-city-search-status { grid-column: 2; min-height: 15px; margin: 0; color: #64748b; font-size: 11px; }
 
 .hkw-mg-subtitle,
@@ -62,7 +64,8 @@
 .hkw-mg-swatch.is-wind { background: #ee74ad; }
 .hkw-mg-swatch.is-gust { background: #e53935; }
 
-.hkw-mg-panel { width: 100%; margin: 0 0 5px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.hkw-mg-panels-scroll { width: 100%; }
+.hkw-mg-panel { width: 100%; margin: 0 0 5px; overflow: visible; }
 .hkw-mg-svg { display: block; width: 100%; height: auto; overflow: visible; }
 .hkw-mg-frame { fill: none; stroke: #d8dde2; stroke-width: 1; }
 .hkw-mg-grid { stroke: #d9dde1; stroke-width: 1; }
@@ -131,13 +134,15 @@
     .hkw-mg-subtitle, .hkw-mg-source { font-size: 11px; }
     .hkw-mg-legend { gap: 6px 10px; font-size: 12px; }
     .hkw-meteogramme { max-width: 100%; overflow: hidden; }
-    .hkw-mg-panel { border-bottom: 1px solid #e5e7eb; }
+    .hkw-mg-panels-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+    .hkw-mg-panel { width: 900px; border-bottom: 1px solid #e5e7eb; }
     .hkw-mg-svg { width: 900px; max-width: none; }
-    .hkw-mg-panel::after { content: "Glissez horizontalement pour voir les prochaines heures →"; display: block; position: sticky; left: 8px; width: max-content; padding: 3px 0 6px; color: #64748b; font-size: 11px; }
     .hkw-mg-activities-grid { grid-template-columns: 1fr; }
     .hkw-mg-activity-card { padding: 16px; border-radius: 16px; }
     .hkw-mg-city-search { grid-template-columns: 1fr; }
     .hkw-mg-city-search-status { grid-column: 1; }
     .hkw-mg-city-search-controls { align-items: stretch; }
     .hkw-mg-city-search-button { padding-inline: 12px; }
+    .hkw-mg-city-search-input { flex-basis: calc(100% - 58px); }
+    .hkw-mg-city-locate-button { width: 100%; }
 }
