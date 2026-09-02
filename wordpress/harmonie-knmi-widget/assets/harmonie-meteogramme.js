@@ -577,9 +577,11 @@
         if (!data.length) { throw new Error('aucune échéance disponible'); }
 
         app.replaceChildren();
+        var titleBar = htmlNode('div', 'hkw-mg-title-bar');
         var heading = htmlNode('h2', 'hkw-mg-title', 'Prévisions pour ' + commune[1] + ' à 3 jours');
-        app.appendChild(heading);
-        app.appendChild(renderCitySearch(app, index, (app.dataset.baseUrl || '').replace(/\/+$/, '')));
+        titleBar.appendChild(heading);
+        titleBar.appendChild(renderCitySearch(app, index, (app.dataset.baseUrl || '').replace(/\/+$/, '')));
+        app.appendChild(titleBar);
         var subtitle = commune[1] + ' (' + commune[0] + ') · point HARMONIE '
             + formatNumber(point[1], 3) + '° N / ' + formatNumber(point[2], 3) + '° E'
             + ' · altitude modèle ' + formatNumber(point[3], 0) + ' m'
