@@ -84,9 +84,10 @@
         return bounds;
     }
     function projector(bounds) {
-        // Un degré de longitude est plus court qu'un degré de latitude en France :
-        // cette correction conserve les proportions physiques réelles de la région.
-        var latitudeFactor = Math.cos(((bounds.south + bounds.north) / 2) * Math.PI / 180);
+        // Correction volontairement adoucie : fidèle géographiquement sans donner
+        // une impression de région trop écrasée dans le format de carte.
+        var physicalLongitudeFactor = Math.cos(((bounds.south + bounds.north) / 2) * Math.PI / 180);
+        var latitudeFactor = (physicalLongitudeFactor + 1) / 2;
         var scale = Math.min(SIZE.width / ((bounds.east - bounds.west) * latitudeFactor), SIZE.height / (bounds.north - bounds.south));
         var mapWidth = (bounds.east - bounds.west) * latitudeFactor * scale; var mapHeight = (bounds.north - bounds.south) * scale;
         var left = (SIZE.width - mapWidth) / 2; var top = (SIZE.height - mapHeight) / 2;

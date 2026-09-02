@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.19.2
+Stable tag: 2.19.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,6 +45,9 @@ Pour masquer le sélecteur régional :
 `[harmonie_carte_icones region="occitanie" selecteur="non"]`
 
 == Changelog ==
+
+= 2.19.3 =
+* Correction de projection adoucie afin d’éviter un aspect visuellement écrasé des régions.
 
 = 2.19.2 =
 * Projection géographique corrigée : les régions conservent désormais leurs proportions réelles au lieu d’être étirées horizontalement.
