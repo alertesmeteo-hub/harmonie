@@ -375,6 +375,90 @@
         container.appendChild(svg);
     }
 
+    function clampScore(value) {
+        return Math.max(0, Math.min(10, Math.round(value)));
+    }
+
+    function average(values) {
+        return values.length ? values.reduce(function (sum, value) { return sum + value; }, 0) / values.length : 0;
+    }
+
+    function averageDirection(rows) {
+        var sine = average(rows.map(function (row) { return Math.sin(row.direction * Math.PI / 180); }));
+        var cosine = average(rows.map(function (row) { return Math.cos(row.direction * Math.PI / 180); }));
+        return (Math.atan2(sine, cosine) * 180 / Math.PI + 360) % 360;
+    }
+
+    function activityStatus(score) {
+        if (score >= 8) { return { label: 'Très conseillé', className: 'is-good', description: 'Conditions très favorables prévues par HARMONIE.' }; }
+        if (score >= 6) { return { label: 'Conseillé', className: 'is-good', description: 'Conditions globalement favorables, avec quelques variations possibles.' }; }
+        if (score >= 4) { return { label: 'Mitigé', className: 'is-medium', description: 'Conditions praticables, mais certains paramètres demandent de la prudence.' }; }
+        return { label: 'Déconseillé', className: 'is-bad', description: 'Conditions peu favorables sur les prochaines 24 heures.' };
+    }
+
+    function activityMetric(label, value) {
+        var row = htmlNode('div', 'hkw-mg-activity-metric');
+        row.appendChild(htmlNode('span', '', label));
+        row.appendChild(htmlNode('strong', '', value));
+        return row;
+    }
+
+    function renderActivities(app, data) {
+        var horizon = data.slice(0, Math.min(24, data.length));
+        var temperatures = horizon.map(function (row) { return row.temperature; });
+        var winds = horizon.map(function (row) { return row.wind; });
+        var gusts = horizon.map(function (row) { return row.gust; });
+        var humidities = horizon.map(function (row) { return row.humidity; });
+        var minimum = Math.round(Math.min.apply(null, temperatures));
+        var maximum = Math.round(Math.max.apply(null, temperatures));
+        var averageTemperature = Math.round(average(temperatures));
+        var averageWind = Math.round(average(winds));
+        var maximumGust = Math.round(Math.max.apply(null, gusts));
+        var averageHumidity = Math.round(average(humidities));
+        var rainyHours = horizon.filter(function (row) { return row.precipitation >= .1; }).length;
+        var rainRisk = Math.round(rainyHours / Math.max(1, horizon.length) * 100);
+        var rainTotal = horizon.reduce(function (sum, row) { return sum + row.precipitation; }, 0);
+        var thunder = Math.max.apply(null, horizon.map(function (row) { return row.thunder; }));
+        var rainPenalty = rainRisk / 18 + Math.min(3, rainTotal);
+        var heatPenalty = Math.max(0, maximum - 28) * .55;
+        var coldPenalty = Math.max(0, 8 - minimum) * .45;
+
+        var activities = [
+            { icon: '🏄', name: 'Voile & Surf', subtitle: 'Planche à voile et sports nautiques', score: clampScore(10 - Math.abs(22 - averageWind) / 3 - Math.max(0, maximumGust - 50) / 10 - rainPenalty * .25), metrics: [['Vent moyen', averageWind + ' km/h'], ['Rafales max', maximumGust + ' km/h'], ['Heures pluvieuses', rainRisk + ' %'], ['Température', averageTemperature + ' °C']] },
+            { icon: '🏃', name: 'Running', subtitle: 'Course à pied', score: clampScore(10 - Math.abs(17 - averageTemperature) / 3 - Math.max(0, averageWind - 25) / 5 - rainPenalty - heatPenalty), metrics: [['Température', averageTemperature + ' °C'], ['Vent moyen', averageWind + ' km/h'], ['Heures pluvieuses', rainRisk + ' %'], ['Humidité', averageHumidity + ' %']] },
+            { icon: '🪁', name: 'Cerf-volant', subtitle: 'Sports de vent', score: clampScore(10 - Math.abs(22 - averageWind) / 3 - Math.max(0, maximumGust - 45) / 6 - rainPenalty * .6), metrics: [['Vent moyen', averageWind + ' km/h'], ['Rafales max', maximumGust + ' km/h'], ['Direction dominante', cardinalDirection(averageDirection(horizon))], ['Heures pluvieuses', rainRisk + ' %']] },
+            { icon: '🛝', name: 'Jeux extérieurs', subtitle: 'Pour les enfants', score: clampScore(10 - heatPenalty - coldPenalty - rainPenalty - Math.max(0, maximumGust - 35) / 7), metrics: [['Temp. min/max', minimum + '° / ' + maximum + '°'], ['Heures pluvieuses', rainRisk + ' %'], ['Rafales max', maximumGust + ' km/h'], ['Humidité', averageHumidity + ' %']] },
+            { icon: '🎣', name: 'Pêche', subtitle: 'Conditions au bord de l’eau', score: clampScore(9 - Math.abs(13 - averageWind) / 4 - Math.max(0, maximumGust - 35) / 8 - rainPenalty * .35 - heatPenalty * .25), metrics: [['Vent moyen', averageWind + ' km/h'], ['Rafales max', maximumGust + ' km/h'], ['Température', averageTemperature + ' °C'], ['Humidité', averageHumidity + ' %']] },
+            { icon: '🏊', name: 'Baignade', subtitle: 'Plage et piscine', score: clampScore(5 + (maximum - 22) * .7 - Math.max(0, averageWind - 25) / 4 - rainPenalty - thunder * 2), metrics: [['Temp. maximum', maximum + ' °C'], ['Vent moyen', averageWind + ' km/h'], ['Heures pluvieuses', rainRisk + ' %'], ['Risque orage', thunder ? 'Présent' : 'Faible']] },
+            { icon: '🚴', name: 'Cyclisme', subtitle: 'Vélo de route et VTT', score: clampScore(10 - Math.abs(19 - averageTemperature) / 4 - Math.max(0, averageWind - 20) / 4 - Math.max(0, maximumGust - 40) / 8 - rainPenalty), metrics: [['Température', averageTemperature + ' °C'], ['Vent moyen', averageWind + ' km/h'], ['Rafales max', maximumGust + ' km/h'], ['Heures pluvieuses', rainRisk + ' %']] },
+            { icon: '⛺', name: 'Camping / Rando', subtitle: 'Bivouac et sorties nature', score: clampScore(10 - heatPenalty * .6 - coldPenalty - rainPenalty * 1.2 - Math.max(0, maximumGust - 35) / 7 - thunder * 2), metrics: [['Temp. min/max', minimum + '° / ' + maximum + '°'], ['Cumul pluie', formatNumber(rainTotal, 1) + ' mm'], ['Rafales max', maximumGust + ' km/h'], ['Risque orage', thunder ? 'Présent' : 'Faible']] }
+        ];
+
+        var section = htmlNode('section', 'hkw-mg-activities');
+        section.appendChild(htmlNode('h3', 'hkw-mg-activities-title', 'Activités — tendance des prochaines 24 heures'));
+        var grid = htmlNode('div', 'hkw-mg-activities-grid');
+        activities.forEach(function (activity) {
+            var status = activityStatus(activity.score);
+            var card = htmlNode('article', 'hkw-mg-activity-card');
+            var header = htmlNode('div', 'hkw-mg-activity-header');
+            var identity = htmlNode('div', 'hkw-mg-activity-identity');
+            identity.appendChild(htmlNode('span', 'hkw-mg-activity-icon', activity.icon));
+            identity.appendChild(htmlNode('h4', '', activity.name));
+            identity.appendChild(htmlNode('small', '', activity.subtitle));
+            var score = htmlNode('div', 'hkw-mg-activity-score', String(activity.score));
+            score.style.setProperty('--hkw-score-angle', (activity.score * 36) + 'deg');
+            score.style.setProperty('--hkw-score-color', activity.score >= 7 ? '#25c978' : (activity.score >= 4 ? '#f59e0b' : '#ef4444'));
+            score.appendChild(htmlNode('small', '', '/10'));
+            header.appendChild(identity); header.appendChild(score); card.appendChild(header);
+            card.appendChild(htmlNode('span', 'hkw-mg-activity-status ' + status.className, status.label));
+            card.appendChild(htmlNode('p', 'hkw-mg-activity-description', status.description));
+            var metrics = htmlNode('div', 'hkw-mg-activity-metrics');
+            activity.metrics.forEach(function (metric) { metrics.appendChild(activityMetric(metric[0], metric[1])); });
+            card.appendChild(metrics); grid.appendChild(card);
+        });
+        section.appendChild(grid); app.appendChild(section);
+    }
+
     function render(app, index, department) {
         var code = app.dataset.code;
         var hours = Math.max(1, Math.min(60, parseInt(app.dataset.hours || '60', 10)));
@@ -410,7 +494,9 @@
                 wind: value(values, 'wind_speed_kmh', 4),
                 direction: value(values, 'wind_direction_deg', 5),
                 gust: value(values, 'wind_gust_kmh', 6),
-                condition: value(values, 'condition_code', 7)
+                condition: value(values, 'condition_code', 7),
+                humidity: Math.max(0, Math.min(100, value(values, 'humidity_pct', 1))),
+                thunder: value(values, 'thunder_risk_code', 10)
             };
         });
         if (!data.length) { throw new Error('aucune échéance disponible'); }
@@ -435,6 +521,7 @@
         drawTemperature(temperature, data, tooltip, app);
         drawCloudRain(cloudRain, data, tooltip, app);
         drawWind(wind, data, tooltip, app);
+        renderActivities(app, data);
 
         var model = index.model || {};
         var source = 'Source exclusive : alertesmeteo-hub/harmonie, branche data · '

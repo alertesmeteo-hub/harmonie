@@ -86,6 +86,29 @@
 .hkw-mg-loading,
 .hkw-mg-error { padding: 18px; background: #f6f7f8; color: #45505c; }
 .hkw-mg-error { color: #a12622; }
+.hkw-mg-activities { margin: 28px 0 20px; }
+.hkw-mg-activities-title { margin: 0 0 14px; color: #111827; font-size: 20px; }
+.hkw-mg-activities-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.hkw-mg-activity-card { padding: 20px; border: 1px solid #1e293b; border-radius: 20px; background: #0f1726; color: #f8fafc; box-shadow: 0 8px 22px rgba(15, 23, 42, .08); }
+.hkw-mg-activity-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.hkw-mg-activity-identity { display: grid; grid-template-columns: auto 1fr; column-gap: 9px; align-items: center; }
+.hkw-mg-activity-icon { grid-row: 1 / 3; font-size: 25px; }
+.hkw-mg-activity-identity h4 { margin: 0; color: #fff; font-size: 16px; }
+.hkw-mg-activity-identity small { color: #94a3b8; font-size: 11px; }
+.hkw-mg-activity-score { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 0 0 54px; width: 54px; height: 54px; border-radius: 50%; background: radial-gradient(circle at center, #0f1726 62%, transparent 64%), conic-gradient(var(--hkw-score-color) var(--hkw-score-angle), #1e293b 0); color: #fff; font-size: 17px; font-weight: 800; line-height: 1; }
+.hkw-mg-activity-score small { margin-top: 2px; color: #94a3b8; font-size: 9px; font-weight: 500; }
+.hkw-mg-activity-status { display: inline-flex; margin: 13px 0 7px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.hkw-mg-activity-status.is-good { background: #c9f9df; color: #087443; }
+.hkw-mg-activity-status.is-medium { background: #fff0bd; color: #985400; }
+.hkw-mg-activity-status.is-bad { background: #fee2e2; color: #a51d1d; }
+.hkw-mg-activity-description { min-height: 34px; margin: 3px 0 12px; color: #aeb8c7; font-size: 12px; line-height: 1.45; }
+.hkw-mg-activity-metrics { padding-top: 10px; border-top: 1px solid #334155; }
+.hkw-mg-activity-metric { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; color: #aeb8c7; font-size: 12px; }
+.hkw-mg-activity-metric strong { color: #f8fafc; text-align: right; }
+
+@media (max-width: 980px) {
+    .hkw-mg-activities-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 @media (max-width: 620px) {
     .hkw-mg-title { font-size: 18px; }
@@ -95,4 +118,6 @@
     .hkw-mg-panel { border-bottom: 1px solid #e5e7eb; }
     .hkw-mg-svg { width: 900px; max-width: none; }
     .hkw-mg-panel::after { content: "Glissez horizontalement pour voir les prochaines heures →"; display: block; position: sticky; left: 8px; width: max-content; padding: 3px 0 6px; color: #64748b; font-size: 11px; }
+    .hkw-mg-activities-grid { grid-template-columns: 1fr; }
+    .hkw-mg-activity-card { padding: 16px; border-radius: 16px; }
 }
