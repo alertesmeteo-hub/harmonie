@@ -76,7 +76,7 @@
 .hkw-mg-weather-icon { font-size: 25px; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
 .hkw-mg-temp-area { fill: #2e9b45; opacity: .14; }
 .hkw-mg-temp-line { fill: none; stroke: #2e9b45; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
-.hkw-mg-cloud-cell { fill: #4b5563; }
+.hkw-mg-cloud-shape { fill: #7d838b; stroke: #666d75; stroke-width: .5; }
 .hkw-mg-rain-bar { fill: #f2b632; }
 .hkw-mg-wind-line { fill: none; stroke: #ee74ad; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .hkw-mg-gust-line { fill: none; stroke: #e53935; stroke-width: 2.7; stroke-linejoin: round; stroke-linecap: round; }

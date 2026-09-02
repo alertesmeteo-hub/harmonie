@@ -93,7 +93,7 @@
     function drawBase(svg, data, options) {
         var width = 1050;
         var height = options.height || 270;
-        var margin = { left: 68, right: 18, top: options.showDayHeaders ? 52 : 30, bottom: 34 };
+        var margin = { left: 68, right: options.rightAxis ? 60 : 18, top: options.showDayHeaders ? 52 : 30, bottom: 34 };
         var innerWidth = width - margin.left - margin.right;
         var innerHeight = height - margin.top - margin.bottom;
         var count = Math.max(2, data.length);
@@ -140,7 +140,9 @@
                 class: 'hkw-mg-grid'
             }));
             svg.appendChild(svgNode('text', {
-                x: margin.left - 10, y: py + 4, 'text-anchor': 'end', class: 'hkw-mg-axis'
+                x: options.rightAxis ? width - margin.right + 10 : margin.left - 10,
+                y: py + 4,
+                'text-anchor': options.rightAxis ? 'start' : 'end', class: 'hkw-mg-axis'
             }, tick.label !== undefined ? tick.label : formatNumber(value, options.decimals || 0)));
         });
 
@@ -162,9 +164,11 @@
             x: margin.left, y: margin.top, width: innerWidth, height: innerHeight,
             class: 'hkw-mg-frame'
         }));
+        var yTitleX = options.rightAxis ? width - 15 : 18;
+        var yTitleRotation = options.rightAxis ? 90 : -90;
         svg.appendChild(svgNode('text', {
-            x: 18, y: margin.top + innerHeight / 2,
-            transform: 'rotate(-90 18 ' + (margin.top + innerHeight / 2) + ')',
+            x: yTitleX, y: margin.top + innerHeight / 2,
+            transform: 'rotate(' + yTitleRotation + ' ' + yTitleX + ' ' + (margin.top + innerHeight / 2) + ')',
             'text-anchor': 'middle', class: 'hkw-mg-y-title'
         }, options.yTitle));
         svg.appendChild(svgNode('text', {
@@ -262,36 +266,57 @@
     function drawCloudRain(container, data, tooltip, app) {
         var svg = svgNode('svg', { class: 'hkw-mg-svg' });
         var base = drawBase(svg, data, {
-            min: 0, max: 3, decimals: 0, title: 'Précipitations et étages nuageux',
+            min: 0, max: 15, decimals: 0, title: 'Précipitations et étages nuageux',
             yTicks: [
-                { value: .5, label: 'Bas' },
-                { value: 1.5, label: 'Moyens' },
-                { value: 2.5, label: 'Élevés' }
+                { value: 0, label: '0' },
+                { value: 1.5, label: '1,5' },
+                { value: 3.5, label: '3,5' },
+                { value: 6, label: '6' },
+                { value: 9, label: '9' },
+                { value: 14, label: '14' },
+                { value: 15, label: '15' }
             ],
-            yTitle: 'Étages nuageux', ariaLabel: 'Prévision horaire des étages nuageux et des précipitations'
+            yTitle: 'Altitude (km)', rightAxis: true,
+            ariaLabel: 'Prévision horaire des étages nuageux entre 0 et 15 kilomètres et des précipitations'
         });
         var slot = base.innerWidth / Math.max(1, data.length - 1);
         var cloudSeries = [
-            { key: 'cloudLow', level: 0 },
-            { key: 'cloudMid', level: 1 },
-            { key: 'cloudHigh', level: 2 }
+            { key: 'cloudLow', altitude: 1.2, thickness: 1.2 },
+            { key: 'cloudMid', altitude: 4.5, thickness: 1.8 },
+            { key: 'cloudHigh', altitude: 10.5, thickness: 1.5 }
         ];
         cloudSeries.forEach(function (series) {
+            var start = null;
+            function drawSegment(end) {
+                if (start === null || end < start) { return; }
+                for (var chunkStart = start; chunkStart <= end; chunkStart += 4) {
+                    var chunkEnd = Math.min(end, chunkStart + 3);
+                    var segment = data.slice(chunkStart, chunkEnd + 1);
+                    var coverage = segment.reduce(function (sum, row) { return sum + row[series.key]; }, 0) / segment.length;
+                    var left = Math.max(base.margin.left, base.x(chunkStart) - slot * .35);
+                    var right = Math.min(base.width - base.margin.right, base.x(chunkEnd) + slot * .35);
+                    var centerX = (left + right) / 2;
+                    var centerY = base.y(series.altitude);
+                    var radiusX = Math.max(5, (right - left) / 2);
+                    var radiusY = Math.max(3, Math.abs(base.y(series.altitude - series.thickness / 2) - base.y(series.altitude + series.thickness / 2)) / 2);
+                    var opacity = (.25 + Math.min(100, coverage) * .0065).toFixed(3);
+                    var frame = svg.querySelector('.hkw-mg-frame');
+                    svg.insertBefore(svgNode('ellipse', { cx: centerX, cy: centerY, rx: radiusX, ry: radiusY, class: 'hkw-mg-cloud-shape', 'fill-opacity': opacity }), frame);
+                    svg.insertBefore(svgNode('ellipse', { cx: centerX - radiusX * .28, cy: centerY - radiusY * .45, rx: radiusX * .42, ry: radiusY * .72, class: 'hkw-mg-cloud-shape', 'fill-opacity': opacity }), frame);
+                    svg.insertBefore(svgNode('ellipse', { cx: centerX + radiusX * .22, cy: centerY - radiusY * .35, rx: radiusX * .35, ry: radiusY * .62, class: 'hkw-mg-cloud-shape', 'fill-opacity': opacity }), frame);
+                }
+            }
             data.forEach(function (row, index) {
-                var coverage = Math.max(0, Math.min(100, row[series.key]));
-                svg.insertBefore(svgNode('rect', {
-                    x: Math.max(base.margin.left, base.x(index) - slot / 2),
-                    y: base.y(series.level + 1),
-                    width: Math.max(2, slot + 1),
-                    height: base.y(series.level) - base.y(series.level + 1),
-                    class: 'hkw-mg-cloud-cell',
-                    'fill-opacity': (.06 + coverage * .0088).toFixed(3)
-                }), svg.querySelector('.hkw-mg-frame'));
+                if (row[series.key] >= 10 && start === null) { start = index; }
+                if ((row[series.key] < 10 || index === data.length - 1) && start !== null) {
+                    drawSegment(row[series.key] < 10 ? index - 1 : index);
+                    start = null;
+                }
             });
         });
         data.forEach(function (row, index) {
             if (row.precipitation > 0) {
-                var rainHeight = Math.min(base.innerHeight / 3, row.precipitation * 18);
+                var rainHeight = Math.min(base.innerHeight * .28, row.precipitation * 18);
                 svg.appendChild(svgNode('rect', {
                     x: base.x(index) - Math.max(2, slot * .22),
                     y: base.margin.top + base.innerHeight - rainHeight,
