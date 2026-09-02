@@ -89,7 +89,7 @@
 .hkw-mg-arrow { font-size: 20px; font-weight: 900; stroke: #111827; stroke-width: .55px; paint-order: stroke fill; }
 .hkw-mg-weather-icon { font-size: 25px; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
 .hkw-mg-temp-area { opacity: .82; }
-.hkw-mg-temp-line { fill: none; stroke: #ef1b16; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
+.hkw-mg-temp-line { fill: none; stroke: #168a3a; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
 .hkw-mg-cloud-shape { fill: #5f6670; stroke: #454b53; stroke-width: .6; }
 .hkw-mg-rain-bar { fill: #1677d2; }
 .hkw-mg-wind-line { fill: none; stroke: #ee74ad; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
