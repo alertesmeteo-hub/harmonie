@@ -159,8 +159,19 @@
         return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
     }
     function cityBox(city, x, y) {
-        var nameWidth = Math.min(148, Math.max(78, city.name.length * 6.6));
-        return { left: x - nameWidth / 2 - 4, right: x + Math.max(nameWidth / 2, 58), top: y - 38, bottom: y + 47 };
+        var lines = cityLabelLines(city.name), nameWidth = Math.min(154, Math.max(82, Math.max.apply(null, lines.map(function (line) { return line.length * 7.2; }))));
+        return { left: x - nameWidth / 2 - 5, right: x + Math.max(nameWidth / 2, 62), top: y - 38, bottom: y + 47 + (lines.length - 1) * 13 };
+    }
+    function cityLabelLines(name) {
+        if (name.length <= 17) { return [name]; }
+        var words = name.replace(/-/g, '- ').split(/\s+/), lines = [''];
+        words.forEach(function (word) {
+            var current = lines[lines.length - 1];
+            var separator = current && current.slice(-1) !== '-' ? ' ' : '';
+            if (current && (current + separator + word).length > 17 && lines.length < 2) { lines.push(word); }
+            else { lines[lines.length - 1] = current ? current + separator + word : word; }
+        });
+        return lines;
     }
     function layoutCities(cities, project, reserveLegend) {
         var occupied = reserveLegend ? [{ left: 10, right: 270, top: 500, bottom: 588 }] : [];
@@ -180,13 +191,17 @@
     function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
-        var clipId = 'hkw-department-clip-' + (++mapSequence);
+        var clipId = 'hkw-department-clip-' + (++mapSequence), hasRelief = !!(terrain && terrain.some(function (point) { return point.altitude > 500; }));
         var defs = svgNode('defs'); var clip = svgNode('clipPath', { id: clipId });
         boundaries.forEach(function (feature) { clip.appendChild(svgNode('path', { d: geometryPath(feature.geometry, project) })); });
+        if (hasRelief) {
+            var reliefFilter = svgNode('filter', { id: clipId + '-relief', x: '-15%', y: '-15%', width: '130%', height: '130%' });
+            reliefFilter.appendChild(svgNode('feGaussianBlur', { stdDeviation: 15 })); defs.appendChild(reliefFilter);
+        }
         defs.appendChild(clip); svg.appendChild(defs);
-        if (terrain && terrain.length) {
-            var reliefGroup = svgNode('g', { class: 'hkw-ara-relief', 'clip-path': 'url(#' + clipId + ')' });
-            terrain.forEach(function (point) { var position = project([point.lon, point.lat]); reliefGroup.appendChild(svgNode('circle', { cx: position[0], cy: position[1], r: 30, fill: altitudeColor(point.altitude) })); });
+        if (hasRelief) {
+            var reliefGroup = svgNode('g', { class: 'hkw-ara-relief', 'clip-path': 'url(#' + clipId + ')', filter: 'url(#' + clipId + '-relief)' });
+            terrain.forEach(function (point) { var position = project([point.lon, point.lat]); reliefGroup.appendChild(svgNode('circle', { cx: position[0], cy: position[1], r: 44, fill: altitudeColor(point.altitude) })); });
             svg.appendChild(reliefGroup);
         }
         var mapGroup = svgNode('g', { class: 'hkw-ara-departments' });
@@ -196,7 +211,7 @@
             rivers.forEach(function (feature) { var path = lineGeometryPath(feature.geometry, project); if (path) { riverGroup.appendChild(svgNode('path', { d: path })); } });
             svg.appendChild(riverGroup);
         }
-        if (terrain && terrain.length) {
+        if (hasRelief) {
             var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 505)' });
             legend.appendChild(svgNode('rect', { x: 0, y: 0, width: 250, height: 77, rx: 8 }));
             legend.appendChild(svgNode('text', { x: 10, y: 18, class: 'hkw-ara-legend-title' }, 'Relief (m)'));
@@ -204,20 +219,20 @@
                 legend.appendChild(svgNode('rect', { x: 10 + index * 45, y: 26, width: 26, height: 10, fill: altitudeColor(item[0]) }));
                 legend.appendChild(svgNode('text', { x: 10 + index * 45, y: 50 }, item[1]));
             });
-            legend.appendChild(svgNode('line', { x1: 10, y1: 65, x2: 39, y2: 65, class: 'hkw-ara-legend-river' }));
-            legend.appendChild(svgNode('text', { x: 46, y: 69 }, 'Rivières'));
             svg.appendChild(legend);
         }
-        layoutCities(region.cities, project, !!(terrain && terrain.length)).forEach(function (layout) {
+        layoutCities(region.cities, project, hasRelief).forEach(function (layout) {
             var city = layout.city;
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
-            group.appendChild(svgNode('text', { class: 'hkw-ara-city-name', x: 0, y: 22, 'text-anchor': 'middle' }, city.name));
-            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: -28, y: 39, transform: 'rotate(' + (row.direction + 90) + ' -28 34)' }, '➤'));
-            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: -12, y: 39 }, Math.round(row.wind) + ' km/h'));
+            var cityName = svgNode('text', { class: 'hkw-ara-city-name', x: 0, y: 22, 'text-anchor': 'middle' });
+            cityLabelLines(city.name).forEach(function (line, index) { cityName.appendChild(svgNode('tspan', { x: 0, dy: index ? 13 : 0 }, line)); }); group.appendChild(cityName);
+            var windY = 39 + (cityLabelLines(city.name).length - 1) * 13;
+            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: -28, y: windY, transform: 'rotate(' + (row.direction + 90) + ' -28 ' + (windY - 5) + ')' }, '➤'));
+            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: -12, y: windY }, Math.round(row.wind) + ' km/h'));
             group.appendChild(svgNode('title', {}, city.name + ' · ' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm'));
             cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
             svg.appendChild(group);

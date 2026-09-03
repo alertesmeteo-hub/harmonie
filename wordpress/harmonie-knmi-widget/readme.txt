@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.2
+Stable tag: 2.21.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,11 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.3 =
+* Noms de villes légèrement agrandis et automatiquement répartis sur deux lignes pour éviter les coupures au bord de carte.
+* Relief refait en aplat lissé ; il est masqué, ainsi que sa légende, lorsqu’aucune altitude départementale ne dépasse 500 m.
+* Texte « Rivières » retiré de la légende.
 
 = 2.21.2 =
 * Traits pointillés de rappel supprimés des cartes départementales.
