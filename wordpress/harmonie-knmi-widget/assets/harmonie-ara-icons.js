@@ -131,10 +131,10 @@
         if (!commune) { return []; }
         var pointId = Number(commune[6]); var columns = payload.columns && payload.columns.values ? payload.columns.values : [];
         function column(name, fallback) { var position = columns.indexOf(name); return position >= 0 ? position : fallback; }
-        var indexes = { temp: column('temperature_c', 0), rain: column('precipitation_mm', 2), cloud: column('cloud_cover_pct', 3), wind: column('wind_speed_kmh', 4), gust: column('wind_gust_kmh', 6), condition: column('condition_code', 9) };
+        var indexes = { temp: column('temperature_c', 0), rain: column('precipitation_mm', 2), cloud: column('cloud_cover_pct', 3), wind: column('wind_speed_kmh', 4), direction: column('wind_direction_deg', 5), gust: column('wind_gust_kmh', 6), condition: column('condition_code', 9) };
         return (payload.forecast || []).map(function (step) {
             var date = new Date(step[0]); var values = step[1][pointId];
-            return { day: tools.key.format(date), hour: Number(tools.hour.format(date).replace(/\D/g, '')), temperature: Number(values[indexes.temp]) || 0, precipitation: Number(values[indexes.rain]) || 0, cloud: Number(values[indexes.cloud]) || 0, wind: Number(values[indexes.wind]) || 0, gust: Number(values[indexes.gust]) || 0, condition: Number(values[indexes.condition]) || 0 };
+            return { day: tools.key.format(date), hour: Number(tools.hour.format(date).replace(/\D/g, '')), temperature: Number(values[indexes.temp]) || 0, precipitation: Number(values[indexes.rain]) || 0, cloud: Number(values[indexes.cloud]) || 0, wind: Number(values[indexes.wind]) || 0, direction: Number(values[indexes.direction]) || 0, gust: Number(values[indexes.gust]) || 0, condition: Number(values[indexes.condition]) || 0 };
         });
     }
     function placeTooltip(tooltip, app, event) {
@@ -151,6 +151,31 @@
         group.addEventListener('focus', function () { tooltip.textContent = message; tooltip.style.left = '8px'; tooltip.style.top = '8px'; tooltip.hidden = false; });
         group.addEventListener('blur', hide);
         group.addEventListener('click', function (event) { event.stopPropagation(); if (tooltip.hidden) { show(event); } else { hide(); } });
+    }
+    function windDirectionLabel(direction) {
+        return ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round((direction % 360) / 45) % 8];
+    }
+    function boxesOverlap(first, second) {
+        return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
+    }
+    function cityBox(city, x, y) {
+        var nameWidth = Math.min(148, Math.max(78, city.name.length * 6.6));
+        return { left: x - nameWidth / 2 - 4, right: x + Math.max(nameWidth / 2, 58), top: y - 38, bottom: y + 47 };
+    }
+    function layoutCities(cities, project, reserveLegend) {
+        var occupied = reserveLegend ? [{ left: 10, right: 270, top: 500, bottom: 588 }] : [];
+        var candidates = [[0,0],[0,-56],[0,58],[68,-24],[-68,-24],[74,36],[-74,36],[0,-108],[0,110],[125,-58],[-125,-58],[130,62],[-130,62]];
+        return cities.reduce(function (placed, city) {
+            var base = project([city.lon, city.lat]); var choice = null;
+            candidates.some(function (offset) {
+                var x = base[0] + offset[0], y = base[1] + offset[1], box = cityBox(city, x, y);
+                if (box.left < 2 || box.right > SIZE.width - 2 || box.top < 2 || box.bottom > SIZE.height - 2) { return false; }
+                if (occupied.some(function (other) { return boxesOverlap(box, other); })) { return false; }
+                choice = { city: city, base: base, x: x, y: y, box: box }; return true;
+            });
+            if (choice) { occupied.push(choice.box); placed.push(choice); }
+            return placed;
+        }, []);
     }
     function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
@@ -183,15 +208,19 @@
             legend.appendChild(svgNode('text', { x: 46, y: 69 }, 'Rivières'));
             svg.appendChild(legend);
         }
-        region.cities.forEach(function (city) {
+        layoutCities(region.cities, project, !!(terrain && terrain.length)).forEach(function (layout) {
+            var city = layout.city;
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
-            var point = project([city.lon, city.lat]); var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + point[0] + ' ' + point[1] + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
+            if (Math.abs(layout.x - layout.base[0]) > 2 || Math.abs(layout.y - layout.base[1]) > 2) { svg.appendChild(svgNode('line', { class: 'hkw-ara-city-link', x1: layout.base[0], y1: layout.base[1], x2: layout.x, y2: layout.y })); }
+            var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
             group.appendChild(svgNode('text', { class: 'hkw-ara-city-name', x: 0, y: 22, 'text-anchor': 'middle' }, city.name));
+            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: -28, y: 39, transform: 'rotate(' + (row.direction + 90) + ' -28 34)' }, '➤'));
+            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: -12, y: 39 }, Math.round(row.wind) + ' km/h'));
             group.appendChild(svgNode('title', {}, city.name + ' · ' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm'));
-            cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
+            cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
             svg.appendChild(group);
         });
         svg.appendChild(svgNode('text', { x: SIZE.width - 14, y: SIZE.height - 14, 'text-anchor': 'end', class: 'hkw-ara-brand' }, 'www.alertes-meteo.com'));
