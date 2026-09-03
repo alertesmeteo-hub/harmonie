@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.19.3
+Stable tag: 2.20.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -44,7 +44,14 @@ Carte à pictogrammes pour une région, avec sélecteur des 13 régions :
 Pour masquer le sélecteur régional :
 `[harmonie_carte_icones region="occitanie" selecteur="non"]`
 
+Carte à pictogrammes pour n’importe quel département métropolitain :
+`[harmonie_carte_icones departement="66"]`
+
 == Changelog ==
+
+= 2.20.0 =
+* Nouveau mode département pour les 96 départements métropolitains : `[harmonie_carte_icones departement="66"]`.
+* La carte utilise le contour réel du département et affiche automatiquement ses principales villes HARMONIE.
 
 = 2.19.3 =
 * Correction de projection adoucie afin d’éviter un aspect visuellement écrasé des régions.

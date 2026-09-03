@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.19.3
+ * Version: 2.20.0
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.19.3');
+define('HKW_VERSION', '2.20.0');
 define('HKW_RELEASE_DATE', '2026-09-02');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
@@ -168,6 +168,7 @@ function hkw_render_admin_help_page() {
         <p><code>[harmonie_table onglet="carte"]</code> : ouvre directement sur l'onglet choisi — <code>general</code> (par défaut), <code>orages</code>, <code>neige</code> ou <code>carte</code>.</p>
         <p><code>[harmonie_meteogramme code="66024" departement="66" ville="Le Boulou" heures="60"]</code> : météogramme seul pour une commune.</p>
         <p><code>[harmonie_carte_icones region="bretagne"]</code> : cartes régionales à pictogrammes du matin et de l’après-midi.</p>
+        <p><code>[harmonie_carte_icones departement="66"]</code> : carte à pictogrammes d’un département (codes 01 à 95, 2A ou 2B).</p>
         <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
         <p>Voir <a href="<?php echo esc_url(admin_url('options-general.php?page=harmonie-knmi')); ?>">Réglages</a> pour l’adresse du dossier de données national.</p>
     </div>
@@ -194,6 +195,7 @@ function hkw_render_settings_page() {
         <p><code>[harmonie_table code="66136" departement="66" ville="Perpignan" selecteur="non"]</code> : une seule ville, sans recherche.</p>
         <p><code>[harmonie_table onglet="carte"]</code> : ouvre directement sur l'onglet choisi — <code>general</code> (par défaut), <code>orages</code>, <code>neige</code> ou <code>carte</code>.</p>
         <p><code>[harmonie_carte_icones region="bretagne"]</code> : cartes régionales à pictogrammes avec sélecteur des 13 régions.</p>
+        <p><code>[harmonie_carte_icones departement="66"]</code> : carte départementale et principales villes HARMONIE.</p>
         <p>Le visiteur peut ensuite rechercher n’importe quelle commune ou saisir un code postal.</p>
     </div>
     <?php
@@ -272,6 +274,7 @@ function hkw_render_ara_icon_map_shortcode($atts) {
         array(
             'titre' => '',
             'region' => 'auvergne-rhone-alpes',
+            'departement' => '',
             'selecteur' => 'oui',
         ),
         $atts,
@@ -300,13 +303,17 @@ function hkw_render_ara_icon_map_shortcode($atts) {
     if (!isset($regions[$region])) {
         $region = 'auvergne-rhone-alpes';
     }
+    $department = strtoupper(trim((string) $atts['departement']));
+    if (!preg_match('/^(?:\d{2}|2A|2B)$/', $department)) {
+        $department = '';
+    }
     $title = trim(sanitize_text_field($atts['titre']));
     $has_custom_title = $title !== '';
     if (!$has_custom_title) {
-        $title = 'Prévisions météo — ' . $regions[$region];
+        $title = $department === '' ? 'Prévisions météo — ' . $regions[$region] : 'Prévisions météo — département ' . $department;
     }
     $selector_value = strtolower(trim(sanitize_text_field($atts['selecteur'])));
-    $show_selector = !in_array($selector_value, array('non', '0', 'false', 'off'), true);
+    $show_selector = $department === '' && !in_array($selector_value, array('non', '0', 'false', 'off'), true);
     wp_enqueue_style('hkw-ara-icons');
     wp_enqueue_script('hkw-ara-icons');
     ob_start();
@@ -318,6 +325,7 @@ function hkw_render_ara_icon_map_shortcode($atts) {
         data-boundary-url="https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/main/config/departements-france.geojson"
         data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
         data-region="<?php echo esc_attr($region); ?>"
+        data-department="<?php echo esc_attr($department); ?>"
         data-selector="<?php echo $show_selector ? 'oui' : 'non'; ?>"
         data-custom-title="<?php echo $has_custom_title ? 'oui' : 'non'; ?>"
     >

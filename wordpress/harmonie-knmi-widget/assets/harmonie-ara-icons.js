@@ -185,8 +185,38 @@
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });
         }
+        function loadDepartment(department) {
+            content.replaceChildren(htmlNode('p', 'hkw-ara-icons-loading', 'Chargement des prévisions HARMONIE…'));
+            Promise.all([boundaryPromise, fetchJson(base + '/departements/' + department + '.json')]).then(function (payloads) {
+                var geojson = payloads[0]; var payload = payloads[1];
+                var boundaries = (geojson.features || []).filter(function (feature) { return String(feature.properties.code).toUpperCase() === department; });
+                if (!boundaries.length) { throw new Error('contour départemental introuvable'); }
+                var cities = (payload.communes || []).filter(function (row) {
+                    return row[0] && row[1] && isFinite(Number(row[4])) && isFinite(Number(row[5])) && Number(row[6]) >= 0;
+                }).sort(function (left, right) {
+                    return Number(right[3]) - Number(left[3]);
+                }).slice(0, 8).map(function (row) {
+                    return { code: row[0], department: department, name: row[1], lat: Number(row[4]), lon: Number(row[5]), dx: 0, dy: 0 };
+                });
+                if (!cities.length) { throw new Error('villes départementales introuvables'); }
+                var departmentName = boundaries[0].properties.nom || ('Département ' + department);
+                var region = { name: departmentName, cities: cities };
+                if (app.dataset.customTitle !== 'oui') { heading.textContent = 'Prévisions météo — ' + departmentName; }
+                var forecasts = {}; cities.forEach(function (city) { forecasts[city.code] = parseDepartment(payload, city, tools); });
+                var firstRows = []; cities.some(function (city) { firstRows = forecasts[city.code] || []; return firstRows.length > 0; });
+                var days = Array.from(new Set(firstRows.map(function (row) { return row.day; }))).slice(0, 3);
+                if (!days.length) { throw new Error('prévisions départementales indisponibles'); }
+                var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
+                function display(day, activeButton) {
+                    navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app));
+                }
+                days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
+            }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });
+        }
         var loading = app.querySelector(':scope > .hkw-ara-icons-loading'); if (loading) { loading.remove(); }
-        selector.addEventListener('change', function () { loadRegion(selector.value); }); loadRegion(selector.value);
+        selector.addEventListener('change', function () { loadRegion(selector.value); });
+        if (app.dataset.department) { loadDepartment(app.dataset.department); } else { loadRegion(selector.value); }
     }
     function ready(callback) { if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', callback, { once: true }); } else { callback(); } }
     ready(function () { document.querySelectorAll('[data-hkw-ara-icons]').forEach(init); });
