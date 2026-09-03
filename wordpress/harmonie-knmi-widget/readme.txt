@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.1
+Stable tag: 2.21.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,10 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.2 =
+* Traits pointillés de rappel supprimés des cartes départementales.
+* Réserve portée à 24 villes principales : la carte affiche le maximum de villes que l’algorithme peut placer sans chevauchement.
 
 = 2.21.1 =
 * Anti-chevauchement automatique des pictogrammes, températures, noms de villes et forces de vent.

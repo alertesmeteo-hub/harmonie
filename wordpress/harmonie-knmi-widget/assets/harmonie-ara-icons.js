@@ -212,7 +212,6 @@
             var city = layout.city;
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
-            if (Math.abs(layout.x - layout.base[0]) > 2 || Math.abs(layout.y - layout.base[1]) > 2) { svg.appendChild(svgNode('line', { class: 'hkw-ara-city-link', x1: layout.base[0], y1: layout.base[1], x2: layout.x, y2: layout.y })); }
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
@@ -280,7 +279,7 @@
                     return row[0] && row[1] && isFinite(Number(row[4])) && isFinite(Number(row[5])) && Number(row[6]) >= 0;
                 }).sort(function (left, right) {
                     return Number(right[3]) - Number(left[3]);
-                }).slice(0, 8).map(function (row) {
+                }).slice(0, 24).map(function (row) {
                     return { code: row[0], department: department, name: row[1], lat: Number(row[4]), lon: Number(row[5]), dx: 0, dy: 0 };
                 });
                 if (!cities.length) { throw new Error('villes départementales introuvables'); }
