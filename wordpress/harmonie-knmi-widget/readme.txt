@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.20.0
+Stable tag: 2.21.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,11 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.0 =
+* Sélecteur des 96 départements ajouté au mode carte départementale.
+* Bouton de géolocalisation permettant d’ouvrir automatiquement le département du visiteur.
+* Relief dessiné avec les altitudes des points HARMONIE et rivières Natural Earth servies depuis le dépôt GitHub du module.
 
 = 2.20.0 =
 * Nouveau mode département pour les 96 départements métropolitains : `[harmonie_carte_icones departement="66"]`.

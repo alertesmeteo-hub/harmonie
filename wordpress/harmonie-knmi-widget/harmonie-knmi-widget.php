@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.20.0
+ * Version: 2.21.0
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.20.0');
+define('HKW_VERSION', '2.21.0');
 define('HKW_RELEASE_DATE', '2026-09-02');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
@@ -313,7 +313,7 @@ function hkw_render_ara_icon_map_shortcode($atts) {
         $title = $department === '' ? 'Prévisions météo — ' . $regions[$region] : 'Prévisions météo — département ' . $department;
     }
     $selector_value = strtolower(trim(sanitize_text_field($atts['selecteur'])));
-    $show_selector = $department === '' && !in_array($selector_value, array('non', '0', 'false', 'off'), true);
+    $show_selector = !in_array($selector_value, array('non', '0', 'false', 'off'), true);
     wp_enqueue_style('hkw-ara-icons');
     wp_enqueue_script('hkw-ara-icons');
     ob_start();
@@ -323,6 +323,7 @@ function hkw_render_ara_icon_map_shortcode($atts) {
         data-hkw-ara-icons
         data-base-url="<?php echo esc_url(hkw_base_url()); ?>"
         data-boundary-url="https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/main/config/departements-france.geojson"
+        data-rivers-url="https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/main/config/france-rivers.geojson"
         data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
         data-region="<?php echo esc_attr($region); ?>"
         data-department="<?php echo esc_attr($department); ?>"

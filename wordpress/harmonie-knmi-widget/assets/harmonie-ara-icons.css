@@ -2,6 +2,8 @@
 .hkw-ara-icons > h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; }
 .hkw-region-controls { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-weight: 700; }
 .hkw-region-selector { min-width: 280px; max-width: 100%; padding: 9px 36px 9px 12px; border: 1px solid #98bd6e; border-radius: 8px; background: #fff; color: #234512; font: inherit; }
+.hkw-department-location { padding: 9px 14px; border: 1px solid #397348; border-radius: 8px; background: #2e7d32; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.hkw-department-location:disabled { cursor: wait; opacity: .7; }
 .hkw-ara-day-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .hkw-ara-day-buttons button { padding: 9px 15px; border: 1px solid #98bd6e; border-radius: 999px; background: #fff; color: #31531c; font-weight: 700; cursor: pointer; text-transform: capitalize; }
 .hkw-ara-day-buttons button.is-active { background: #2e7d32; color: #fff; }
@@ -10,6 +12,12 @@
 .hkw-ara-icon-panel h3 { margin: 0; padding: 13px 16px; background: #dcedad; color: #234512; font-size: 20px; }
 .hkw-ara-icon-panel svg { display: block; width: 100%; height: auto; background: linear-gradient(#eef8d5, #dff0bc); }
 .hkw-ara-departments path { fill: rgba(255,255,255,.42); stroke: #688650; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.hkw-ara-relief circle { opacity: .72; }
+.hkw-ara-rivers path { fill: none; stroke: #4798cf; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: .9; }
+.hkw-ara-map-legend > rect:first-child { fill: rgba(255,255,255,.9); stroke: #8ca977; }
+.hkw-ara-map-legend text { fill: #29411f; font: 700 10px Arial, sans-serif; }
+.hkw-ara-map-legend .hkw-ara-legend-title { font-size: 12px; }
+.hkw-ara-map-legend .hkw-ara-legend-river { stroke: #4798cf; stroke-width: 3; }
 .hkw-ara-weather-icon { font: 32px "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 .hkw-ara-temperature { fill: #b42318; font: 800 17px Arial, sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
 .hkw-ara-city-name { fill: #17230f; font: 700 11px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
@@ -23,6 +31,7 @@
     .hkw-ara-icons > h2 { font-size: 25px; }
     .hkw-region-controls { align-items: stretch; flex-direction: column; }
     .hkw-region-selector { width: 100%; min-width: 0; }
+    .hkw-department-location { width: 100%; }
     .hkw-ara-icon-maps { grid-template-columns: 1fr; }
     .hkw-ara-icon-panel h3 { font-size: 18px; }
 }
