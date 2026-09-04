@@ -42,7 +42,7 @@
             ['2A004','2A','Ajaccio',41.919,8.738], ['2B033','2B','Bastia',42.697,9.450], ['2B096','2B','Corte',42.306,9.150]
         ]}
     };
-    var SIZE = { width: 980, height: 640 };
+    var SIZE = { width: 1120, height: 720 };
     var mapSequence = 0;
     Object.keys(REGIONS).forEach(function (slug) {
         REGIONS[slug].cities = REGIONS[slug].cities.map(function (city) {
@@ -178,10 +178,14 @@
         return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
     }
     function cityBox(city, x, y) {
-        var lines = cityLabelLines(city.name), nameWidth = Math.min(154, Math.max(82, Math.max.apply(null, lines.map(function (line) { return line.length * 7.2; }))));
+        var lines = cityLabelLines(city.name), nameWidth = Math.min(140, Math.max(76, Math.max.apply(null, lines.map(function (line) { return line.length * 6.6; }))));
         return { left: x - nameWidth / 2 - 5, right: x + Math.max(nameWidth / 2, 62), top: y - 38, bottom: y + 47 + (lines.length - 1) * 13 };
     }
-    function cityLabelLines(name) {
+    function abbreviateCityName(name) {
+        return name.replace(/\bSainte(?=[- ])/g, 'Ste').replace(/\bSaint(?=[- ])/g, 'St');
+    }
+    function cityLabelLines(fullName) {
+        var name = abbreviateCityName(fullName);
         if (name.length <= 17) { return [name]; }
         var words = name.replace(/-/g, '- ').split(/\s+/), lines = [''];
         words.forEach(function (word) {
@@ -193,7 +197,7 @@
         return lines;
     }
     function layoutCities(cities, project, reserveLegend, strict) {
-        var occupied = reserveLegend ? [{ left: 10, right: 270, top: 540, bottom: 628 }] : [];
+        var occupied = reserveLegend ? [{ left: 10, right: 270, top: 620, bottom: 708 }] : [];
         var candidates = [
             [0,0],[0,-56],[0,58],[68,-24],[-68,-24],[74,36],[-74,36],[0,-108],[0,110],[125,-58],[-125,-58],[130,62],[-130,62],
             [40,-90],[-40,-90],[40,92],[-40,92],[105,-14],[-105,-14],[105,16],[-105,16],[0,-160],[0,160],[170,-40],[-170,-40],[170,40],[-170,40]
@@ -254,7 +258,7 @@
             svg.appendChild(riverGroup);
         }
         if (showReliefLegend) {
-            var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 545)' });
+            var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 625)' });
             legend.appendChild(svgNode('rect', { x: 0, y: 0, width: 250, height: 77, rx: 8 }));
             legend.appendChild(svgNode('text', { x: 10, y: 18, class: 'hkw-ara-legend-title' }, 'Relief (m)'));
             [[0,'0'],[200,'200'],[500,'500'],[1000,'1 000'],[2000,'2 000+']].forEach(function (item, index) {
@@ -346,7 +350,7 @@
                 // comme le Pays de Gex) rendent les étiquettes illisibles si on force les 24 villes les
                 // plus peuplées : on garde la plus peuplée de chaque groupe rapproché et on complète
                 // avec des villes plus éloignées plutôt que d'entasser un cluster.
-                var cities = pickSpreadOutCities(candidateRows, 24, 6).map(function (row) {
+                var cities = pickSpreadOutCities(candidateRows, 16, 6).map(function (row) {
                     return { code: row[0], department: department, name: row[1], lat: Number(row[4]), lon: Number(row[5]), dx: 0, dy: 0 };
                 });
                 if (!cities.length) { throw new Error('villes départementales introuvables'); }

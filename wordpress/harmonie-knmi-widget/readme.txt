@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.10
+Stable tag: 2.21.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,12 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.11 =
+* Carte départementale agrandie (980×640 → 1120×720).
+* Nombre de villes affichées réduit de 24 à 16 pour une carte moins chargée.
+* Police légèrement réduite (nom de ville, température, vent) pour un rendu plus fin.
+* « Saint- »/« Sainte- » abrégé en « St- »/« Ste- » dans les étiquettes affichées (le nom complet reste utilisé dans l’infobulle).
 
 = 2.21.10 =
 * Remplacement du fichier des cours d’eau : passage d’un jeu de données Natural Earth 1:10m (124 fleuves à l’échelle de l’Europe) à un extrait OpenStreetMap propre à la France (3 667 rivières nommées, régénéré région par région). Les petits départements affichent désormais plusieurs rivières au lieu d’aucune.
