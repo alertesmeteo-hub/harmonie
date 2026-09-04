@@ -23,6 +23,8 @@
 .hkw-ara-city-name { fill: #17230f; font: 700 12px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-arrow { fill: #0a6072; font: 800 18px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-force { fill: #0a6072; font: 800 10px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
+.hkw-ara-city-leader { stroke: #4a6b3a; stroke-width: 1.3; stroke-dasharray: 2.5 2.5; opacity: .75; }
+.hkw-ara-city-dot { fill: #234512; stroke: #fff; stroke-width: 1.2; }
 .hkw-ara-city { cursor: pointer; outline: none; }
 .hkw-ara-city:focus .hkw-ara-weather-icon { filter: drop-shadow(0 0 3px #174f2c); }
 .hkw-ara-tooltip { position: absolute; z-index: 10; min-width: 205px; padding: 9px 12px; border: 1px solid #476d30; border-radius: 9px; background: rgba(21,48,28,.96); color: #fff; font-size: 13px; font-weight: 700; line-height: 1.45; white-space: pre-line; box-shadow: 0 3px 12px rgba(0,0,0,.25); pointer-events: none; }

@@ -190,9 +190,12 @@
         });
         return lines;
     }
-    function layoutCities(cities, project, reserveLegend) {
+    function layoutCities(cities, project, reserveLegend, strict) {
         var occupied = reserveLegend ? [{ left: 10, right: 270, top: 540, bottom: 628 }] : [];
-        var candidates = [[0,0],[0,-56],[0,58],[68,-24],[-68,-24],[74,36],[-74,36],[0,-108],[0,110],[125,-58],[-125,-58],[130,62],[-130,62]];
+        var candidates = [
+            [0,0],[0,-56],[0,58],[68,-24],[-68,-24],[74,36],[-74,36],[0,-108],[0,110],[125,-58],[-125,-58],[130,62],[-130,62],
+            [40,-90],[-40,-90],[40,92],[-40,92],[105,-14],[-105,-14],[105,16],[-105,16],[0,-160],[0,160],[170,-40],[-170,-40],[170,40],[-170,40]
+        ];
         return cities.reduce(function (placed, city) {
             var base = project([city.lon, city.lat]); var choice = null; var fallback = null; var fallbackOverlaps = Infinity;
             candidates.some(function (offset) {
@@ -203,14 +206,18 @@
                 if (overlaps < fallbackOverlaps) { fallbackOverlaps = overlaps; fallback = { city: city, base: base, x: x, y: y, box: box }; }
                 return false;
             });
-            // Toujours afficher la ville : à défaut d'une position libre, on garde celle qui
-            // chevauche le moins d'étiquettes déjà placées plutôt que de la faire disparaître.
-            if (!choice) { choice = fallback || { city: city, base: base, x: base[0], y: base[1], box: cityBox(city, base[0], base[1]) }; }
+            // Une étiquette qui chevauche une autre les rend toutes les deux illisibles : en mode
+            // strict (cartes départementales, où l'on force jusqu'à 24 villes) on préfère omettre
+            // une ville plutôt que de superposer son étiquette à une autre déjà placée. En mode
+            // large (cartes régionales, peu de villes très espacées) on garde un repli pour éviter
+            // qu'une ville ne disparaisse totalement alors qu'il y a largement la place.
+            if (!choice && !strict) { choice = fallback || { city: city, base: base, x: base[0], y: base[1], box: cityBox(city, base[0], base[1]) }; }
+            if (!choice) { return placed; }
             occupied.push(choice.box); placed.push(choice);
             return placed;
         }, []);
     }
-    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers) {
+    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, strictLayout) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
         var clipId = 'hkw-department-clip-' + (++mapSequence), hasRelief = !!(terrain && terrain.some(function (point) { return point.altitude > 100; }));
@@ -243,10 +250,13 @@
             });
             svg.appendChild(legend);
         }
-        layoutCities(region.cities, project, hasRelief).forEach(function (layout) {
+        layoutCities(region.cities, project, hasRelief, strictLayout).forEach(function (layout) {
             var city = layout.city;
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
+            var moved = layout.x !== layout.base[0] || layout.y !== layout.base[1];
+            if (moved) { svg.appendChild(svgNode('line', { class: 'hkw-ara-city-leader', x1: layout.base[0].toFixed(1), y1: layout.base[1].toFixed(1), x2: layout.x.toFixed(1), y2: layout.y.toFixed(1) })); }
+            svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.4 }));
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
@@ -342,7 +352,7 @@
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, true), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, true));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });
