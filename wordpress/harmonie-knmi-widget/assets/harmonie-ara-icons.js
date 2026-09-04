@@ -42,7 +42,7 @@
             ['2A004','2A','Ajaccio',41.919,8.738], ['2B033','2B','Bastia',42.697,9.450], ['2B096','2B','Corte',42.306,9.150]
         ]}
     };
-    var SIZE = { width: 760, height: 600 };
+    var SIZE = { width: 980, height: 640 };
     var mapSequence = 0;
     Object.keys(REGIONS).forEach(function (slug) {
         REGIONS[slug].cities = REGIONS[slug].cities.map(function (city) {
@@ -79,8 +79,11 @@
             value.forEach(visit);
         }
         features.forEach(function (feature) { visit(feature.geometry && feature.geometry.coordinates); });
-        var xPad = Math.max(.12, (bounds.east - bounds.west) * .1);
-        var yPad = Math.max(.12, (bounds.north - bounds.south) * .1);
+        // Padding proportionnel à la taille réelle du contour : un plancher fixe trop élevé
+        // (l'ancien 0.12°) écrasait les petits départements comme Paris, dont l'emprise ne
+        // fait qu'environ 0.09° x 0.25°, au milieu d'un cadre presque vide.
+        var xPad = Math.max((bounds.east - bounds.west) * .12, .02);
+        var yPad = Math.max((bounds.north - bounds.south) * .12, .02);
         bounds.west -= xPad; bounds.east += xPad; bounds.south -= yPad; bounds.north += yPad;
         return bounds;
     }
@@ -174,24 +177,29 @@
         return lines;
     }
     function layoutCities(cities, project, reserveLegend) {
-        var occupied = reserveLegend ? [{ left: 10, right: 270, top: 500, bottom: 588 }] : [];
+        var occupied = reserveLegend ? [{ left: 10, right: 270, top: 540, bottom: 628 }] : [];
         var candidates = [[0,0],[0,-56],[0,58],[68,-24],[-68,-24],[74,36],[-74,36],[0,-108],[0,110],[125,-58],[-125,-58],[130,62],[-130,62]];
         return cities.reduce(function (placed, city) {
-            var base = project([city.lon, city.lat]); var choice = null;
+            var base = project([city.lon, city.lat]); var choice = null; var fallback = null; var fallbackOverlaps = Infinity;
             candidates.some(function (offset) {
                 var x = base[0] + offset[0], y = base[1] + offset[1], box = cityBox(city, x, y);
                 if (box.left < 2 || box.right > SIZE.width - 2 || box.top < 2 || box.bottom > SIZE.height - 2) { return false; }
-                if (occupied.some(function (other) { return boxesOverlap(box, other); })) { return false; }
-                choice = { city: city, base: base, x: x, y: y, box: box }; return true;
+                var overlaps = occupied.filter(function (other) { return boxesOverlap(box, other); }).length;
+                if (overlaps === 0) { choice = { city: city, base: base, x: x, y: y, box: box }; return true; }
+                if (overlaps < fallbackOverlaps) { fallbackOverlaps = overlaps; fallback = { city: city, base: base, x: x, y: y, box: box }; }
+                return false;
             });
-            if (choice) { occupied.push(choice.box); placed.push(choice); }
+            // Toujours afficher la ville : à défaut d'une position libre, on garde celle qui
+            // chevauche le moins d'étiquettes déjà placées plutôt que de la faire disparaître.
+            if (!choice) { choice = fallback || { city: city, base: base, x: base[0], y: base[1], box: cityBox(city, base[0], base[1]) }; }
+            occupied.push(choice.box); placed.push(choice);
             return placed;
         }, []);
     }
     function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
-        var clipId = 'hkw-department-clip-' + (++mapSequence), hasRelief = !!(terrain && terrain.some(function (point) { return point.altitude > 500; }));
+        var clipId = 'hkw-department-clip-' + (++mapSequence), hasRelief = !!(terrain && terrain.some(function (point) { return point.altitude > 100; }));
         var defs = svgNode('defs'); var clip = svgNode('clipPath', { id: clipId });
         boundaries.forEach(function (feature) { clip.appendChild(svgNode('path', { d: geometryPath(feature.geometry, project) })); });
         if (hasRelief) {
@@ -212,7 +220,7 @@
             svg.appendChild(riverGroup);
         }
         if (hasRelief) {
-            var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 505)' });
+            var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 545)' });
             legend.appendChild(svgNode('rect', { x: 0, y: 0, width: 250, height: 77, rx: 8 }));
             legend.appendChild(svgNode('text', { x: 10, y: 18, class: 'hkw-ara-legend-title' }, 'Relief (m)'));
             [[0,'0'],[300,'300'],[700,'700'],[1200,'1 200'],[2000,'2 000+']].forEach(function (item, index) {

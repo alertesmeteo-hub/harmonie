@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.3
+Stable tag: 2.21.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,12 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.5 =
+* Cartes Matin/Après-midi affichées l’une sous l’autre (au lieu de côte à côte) et agrandies pour occuper toute la largeur.
+* Relief affiché dès qu’un point du département dépasse 100 m (au lieu de 500 m), pour les départements peu vallonnés.
+* Correction du cadrage des petits départements (ex. Paris) : la marge fixe autour du contour écrasait leur faible superficie et les faisait apparaître minuscules au centre d’un cadre vide.
+* Correction : une ville pouvait disparaître entièrement de la carte régionale (ex. Lyon, Le Puy-en-Velay) quand aucune position sans chevauchement n’était trouvée pour son étiquette. Elle est désormais toujours affichée, au besoin avec un léger chevauchement.
 
 = 2.21.3 =
 * Noms de villes légèrement agrandis et automatiquement répartis sur deux lignes pour éviter les coupures au bord de carte.

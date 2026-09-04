@@ -7,7 +7,7 @@
 .hkw-ara-day-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .hkw-ara-day-buttons button { padding: 9px 15px; border: 1px solid #98bd6e; border-radius: 999px; background: #fff; color: #31531c; font-weight: 700; cursor: pointer; text-transform: capitalize; }
 .hkw-ara-day-buttons button.is-active { background: #2e7d32; color: #fff; }
-.hkw-ara-icon-maps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.hkw-ara-icon-maps { display: grid; grid-template-columns: 1fr; gap: 20px; }
 .hkw-ara-icon-panel { overflow: hidden; border: 1px solid #b6d58b; border-radius: 18px; background: #edf8c8; }
 .hkw-ara-icon-panel h3 { margin: 0; padding: 13px 16px; background: #dcedad; color: #234512; font-size: 20px; }
 .hkw-ara-icon-panel svg { display: block; width: 100%; height: auto; background: linear-gradient(#eef8d5, #dff0bc); }
