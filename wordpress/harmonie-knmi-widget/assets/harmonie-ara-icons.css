@@ -12,8 +12,10 @@
 .hkw-ara-icon-panel h3 { margin: 0; padding: 13px 16px; background: #dcedad; color: #234512; font-size: 20px; }
 .hkw-ara-icon-panel svg { display: block; width: 100%; height: auto; background: linear-gradient(#eef8d5, #dff0bc); }
 .hkw-ara-departments path { fill: rgba(255,255,255,.42); stroke: #688650; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-.hkw-ara-relief circle { opacity: .58; }
-.hkw-ara-rivers path { fill: none; stroke: #4798cf; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; opacity: .9; }
+.hkw-ara-relief circle { opacity: .62; }
+.hkw-ara-rivers path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.hkw-ara-river-bed { stroke: #2f6fa8; stroke-width: 3.2; opacity: .5; }
+.hkw-ara-river-flow { stroke: #9ed6f5; stroke-width: 1.3; opacity: .95; }
 .hkw-ara-map-legend > rect:first-child { fill: rgba(255,255,255,.9); stroke: #8ca977; }
 .hkw-ara-map-legend text { fill: #29411f; font: 700 10px Arial, sans-serif; }
 .hkw-ara-map-legend .hkw-ara-legend-title { font-size: 12px; }
@@ -23,8 +25,6 @@
 .hkw-ara-city-name { fill: #17230f; font: 700 12px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-arrow { fill: #0a6072; font: 800 18px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-force { fill: #0a6072; font: 800 10px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
-.hkw-ara-city-leader { stroke: #4a6b3a; stroke-width: 1.3; stroke-dasharray: 2.5 2.5; opacity: .75; }
-.hkw-ara-city-dot { fill: #234512; stroke: #fff; stroke-width: 1.2; }
 .hkw-ara-city { cursor: pointer; outline: none; }
 .hkw-ara-city:focus .hkw-ara-weather-icon { filter: drop-shadow(0 0 3px #174f2c); }
 .hkw-ara-tooltip { position: absolute; z-index: 10; min-width: 205px; padding: 9px 12px; border: 1px solid #476d30; border-radius: 9px; background: rgba(21,48,28,.96); color: #fff; font-size: 13px; font-weight: 700; line-height: 1.45; white-space: pre-line; box-shadow: 0 3px 12px rgba(0,0,0,.25); pointer-events: none; }

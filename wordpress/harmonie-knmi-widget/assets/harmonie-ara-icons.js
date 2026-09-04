@@ -116,9 +116,11 @@
         return '';
     }
     function altitudeColor(altitude) {
-        if (altitude < 100) { return '#dcefb6'; } if (altitude < 300) { return '#bcd98e'; }
-        if (altitude < 700) { return '#d8bd7b'; } if (altitude < 1200) { return '#b58c61'; }
-        if (altitude < 2000) { return '#8b7466'; } return '#eee9e1';
+        if (altitude < 50) { return '#dcefb8'; } if (altitude < 100) { return '#d2e9a4'; }
+        if (altitude < 200) { return '#c2dd8c'; } if (altitude < 350) { return '#cdca7e'; }
+        if (altitude < 500) { return '#d3b876'; } if (altitude < 700) { return '#c49f68'; }
+        if (altitude < 1000) { return '#ab8560'; } if (altitude < 1500) { return '#8f7061'; }
+        if (altitude < 2000) { return '#8b7d78'; } return '#eee9e1';
     }
     function weatherIcon(code, precipitation, cloud) {
         if (code === 7) { return '🌨️'; } if (code === 8) { return '🌫️'; } if (code === 9) { return '💨'; }
@@ -220,43 +222,51 @@
     function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, strictLayout) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
-        var clipId = 'hkw-department-clip-' + (++mapSequence), hasRelief = !!(terrain && terrain.some(function (point) { return point.altitude > 100; }));
+        var clipId = 'hkw-department-clip-' + (++mapSequence);
+        // Le relief est peint dès qu'un point dépasse 100 m, pour rester visible même dans les
+        // départements peu vallonnés ; la légende chiffrée n'est en revanche affichée que si le
+        // relief dépasse vraiment 500 m quelque part, sinon elle décrirait une échelle sans objet.
+        var showRelief = !!(terrain && terrain.some(function (point) { return point.altitude > 100; }));
+        var showReliefLegend = !!(terrain && terrain.some(function (point) { return point.altitude > 500; }));
         var defs = svgNode('defs'); var clip = svgNode('clipPath', { id: clipId });
         boundaries.forEach(function (feature) { clip.appendChild(svgNode('path', { d: geometryPath(feature.geometry, project) })); });
-        if (hasRelief) {
-            var reliefFilter = svgNode('filter', { id: clipId + '-relief', x: '-15%', y: '-15%', width: '130%', height: '130%' });
-            reliefFilter.appendChild(svgNode('feGaussianBlur', { stdDeviation: 15 })); defs.appendChild(reliefFilter);
+        if (showRelief) {
+            var reliefFilter = svgNode('filter', { id: clipId + '-relief', x: '-20%', y: '-20%', width: '140%', height: '140%' });
+            reliefFilter.appendChild(svgNode('feGaussianBlur', { stdDeviation: 20 })); defs.appendChild(reliefFilter);
         }
         defs.appendChild(clip); svg.appendChild(defs);
-        if (hasRelief) {
+        if (showRelief) {
             var reliefGroup = svgNode('g', { class: 'hkw-ara-relief', 'clip-path': 'url(#' + clipId + ')', filter: 'url(#' + clipId + '-relief)' });
-            terrain.forEach(function (point) { var position = project([point.lon, point.lat]); reliefGroup.appendChild(svgNode('circle', { cx: position[0], cy: position[1], r: 44, fill: altitudeColor(point.altitude) })); });
+            terrain.slice().sort(function (a, b) { return a.altitude - b.altitude; }).forEach(function (point) { var position = project([point.lon, point.lat]); reliefGroup.appendChild(svgNode('circle', { cx: position[0], cy: position[1], r: 52, fill: altitudeColor(point.altitude) })); });
             svg.appendChild(reliefGroup);
         }
         var mapGroup = svgNode('g', { class: 'hkw-ara-departments' });
         boundaries.forEach(function (feature) { mapGroup.appendChild(svgNode('path', { d: geometryPath(feature.geometry, project) })); }); svg.appendChild(mapGroup);
         if (rivers && rivers.length) {
             var riverGroup = svgNode('g', { class: 'hkw-ara-rivers', 'clip-path': 'url(#' + clipId + ')' });
-            rivers.forEach(function (feature) { var path = lineGeometryPath(feature.geometry, project); if (path) { riverGroup.appendChild(svgNode('path', { d: path })); } });
+            rivers.forEach(function (feature) {
+                var path = lineGeometryPath(feature.geometry, project);
+                if (path) {
+                    riverGroup.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-bed' }));
+                    riverGroup.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-flow' }));
+                }
+            });
             svg.appendChild(riverGroup);
         }
-        if (hasRelief) {
+        if (showReliefLegend) {
             var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 545)' });
             legend.appendChild(svgNode('rect', { x: 0, y: 0, width: 250, height: 77, rx: 8 }));
             legend.appendChild(svgNode('text', { x: 10, y: 18, class: 'hkw-ara-legend-title' }, 'Relief (m)'));
-            [[0,'0'],[300,'300'],[700,'700'],[1200,'1 200'],[2000,'2 000+']].forEach(function (item, index) {
+            [[0,'0'],[200,'200'],[500,'500'],[1000,'1 000'],[2000,'2 000+']].forEach(function (item, index) {
                 legend.appendChild(svgNode('rect', { x: 10 + index * 45, y: 26, width: 26, height: 10, fill: altitudeColor(item[0]) }));
                 legend.appendChild(svgNode('text', { x: 10 + index * 45, y: 50 }, item[1]));
             });
             svg.appendChild(legend);
         }
-        layoutCities(region.cities, project, hasRelief, strictLayout).forEach(function (layout) {
+        layoutCities(region.cities, project, showReliefLegend, strictLayout).forEach(function (layout) {
             var city = layout.city;
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
-            var moved = layout.x !== layout.base[0] || layout.y !== layout.base[1];
-            if (moved) { svg.appendChild(svgNode('line', { class: 'hkw-ara-city-leader', x1: layout.base[0].toFixed(1), y1: layout.base[1].toFixed(1), x2: layout.x.toFixed(1), y2: layout.y.toFixed(1) })); }
-            svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.4 }));
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
