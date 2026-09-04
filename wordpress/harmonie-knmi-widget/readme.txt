@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.20
+Stable tag: 2.21.21
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,9 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.21 =
+* Rivières coupées corrigées : une rivière française est souvent découpée en dizaines de tronçons OSM distincts. Le filtre précédent gardait uniquement les tronçons individuellement longs (≥ 6 km), ce qui coupait des rivières par ailleurs longues en morceaux dès qu'un tronçon intermédiaire était plus court — visible comme des rivières qui s'arrêtent en plein milieu de la carte. Le filtre porte maintenant sur la longueur totale de tous les tronçons partageant le même nom (seuil 3 km) : si une rivière est retenue, tous ses tronçons le sont, garantissant la continuité du tracé. config/france-rivers.geojson régénéré (41 814 tronçons, ~1,6 Mo compressé).
 
 = 2.21.20 =
 * Point de repère noir supprimé : décalé en bas à gauche de l'icône en 2.21.19 pour rester visible, il ne marquait plus la position géographique exacte et semblait mal placé dans les zones à villes rapprochées (ex. Pyrénées-Orientales). L'icône elle-même est déjà exactement à la bonne position depuis la 2.21.15 ; un point séparé était soit caché dessous (2.21.18), soit décalé et trompeur (2.21.19). Retiré.
