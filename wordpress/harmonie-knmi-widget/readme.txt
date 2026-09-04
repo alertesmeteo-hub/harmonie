@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.12
+Stable tag: 2.21.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,12 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.13 =
+* Nom de ville retiré de la carte (déjà présent dans l'infobulle et l'aria-label) : l'empreinte de chaque ville est désormais fixe et compacte (icône + température + éventuel vent fort), ce qui permet à l'étiquette de rester quasiment collée à son point de repère au lieu d'en être décalée.
+* Décalage maximal encore réduit (jusqu'à ~66 px au lieu de ~90 px) grâce à cette empreinte plus petite.
+* Valeur numérique du vent affichée uniquement si elle dépasse 70 km/h ; la flèche de direction reste toujours visible.
+* Nombre de villes remonté de 12 à 18 (l'empreinte compacte laisse davantage de place).
 
 = 2.21.12 =
 * Correction du décalage entre le point de repère (position réelle) et l'étiquette : les positions candidates trop éloignées (jusqu'à 170 px) donnaient l'impression de villes mal placées. Le décalage maximum est maintenant beaucoup plus réduit ; si aucune position proche ne convient, la ville est omise plutôt que déplacée loin de son point.

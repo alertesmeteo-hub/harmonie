@@ -177,24 +177,11 @@
     function boxesOverlap(first, second) {
         return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
     }
-    function cityBox(city, x, y) {
-        var lines = cityLabelLines(city.name), nameWidth = Math.min(140, Math.max(76, Math.max.apply(null, lines.map(function (line) { return line.length * 6.6; }))));
-        return { left: x - nameWidth / 2 - 5, right: x + Math.max(nameWidth / 2, 62), top: y - 38, bottom: y + 47 + (lines.length - 1) * 13 };
-    }
-    function abbreviateCityName(name) {
-        return name.replace(/\bSainte(?=[- ])/g, 'Ste').replace(/\bSaint(?=[- ])/g, 'St');
-    }
-    function cityLabelLines(fullName) {
-        var name = abbreviateCityName(fullName);
-        if (name.length <= 17) { return [name]; }
-        var words = name.replace(/-/g, '- ').split(/\s+/), lines = [''];
-        words.forEach(function (word) {
-            var current = lines[lines.length - 1];
-            var separator = current && current.slice(-1) !== '-' ? ' ' : '';
-            if (current && (current + separator + word).length > 17 && lines.length < 2) { lines.push(word); }
-            else { lines[lines.length - 1] = current ? current + separator + word : word; }
-        });
-        return lines;
+    // Plus de nom de ville sur la carte (déjà dans l'infobulle) : l'empreinte de chaque
+    // ville est désormais fixe et compacte (icône + température + éventuelle vitesse de
+    // vent forte), ce qui permet à l'étiquette de rester au plus près de son point réel.
+    function cityBox(x, y) {
+        return { left: x - 34, right: x + 48, top: y - 20, bottom: y + 34 };
     }
     function layoutCities(cities, project, reserveLegend, strict) {
         var occupied = reserveLegend ? [{ left: 10, right: 270, top: 720, bottom: 808 }] : [];
@@ -202,11 +189,11 @@
         // réelle) et l'étiquette donne l'impression que la ville est mal placée. Si aucune de
         // ces positions proches ne convient, la ville est omise (mode strict) plutôt que
         // déplacée loin de son point.
-        var candidates = [[0,0],[0,-52],[0,54],[62,-22],[-62,-22],[66,32],[-66,32],[0,-92],[0,92],[88,-46],[-88,-46]];
+        var candidates = [[0,0],[0,-40],[0,42],[46,-18],[-46,-18],[48,24],[-48,24],[0,-66],[0,66]];
         return cities.reduce(function (placed, city) {
             var base = project([city.lon, city.lat]); var choice = null; var fallback = null; var fallbackOverlaps = Infinity;
             candidates.some(function (offset) {
-                var x = base[0] + offset[0], y = base[1] + offset[1], box = cityBox(city, x, y);
+                var x = base[0] + offset[0], y = base[1] + offset[1], box = cityBox(x, y);
                 if (box.left < 2 || box.right > SIZE.width - 2 || box.top < 2 || box.bottom > SIZE.height - 2) { return false; }
                 var overlaps = occupied.filter(function (other) { return boxesOverlap(box, other); }).length;
                 if (overlaps === 0) { choice = { city: city, base: base, x: x, y: y, box: box }; return true; }
@@ -218,7 +205,7 @@
             // une ville plutôt que de superposer son étiquette à une autre déjà placée. En mode
             // large (cartes régionales, peu de villes très espacées) on garde un repli pour éviter
             // qu'une ville ne disparaisse totalement alors qu'il y a largement la place.
-            if (!choice && !strict) { choice = fallback || { city: city, base: base, x: base[0], y: base[1], box: cityBox(city, base[0], base[1]) }; }
+            if (!choice && !strict) { choice = fallback || { city: city, base: base, x: base[0], y: base[1], box: cityBox(base[0], base[1]) }; }
             if (!choice) { return placed; }
             occupied.push(choice.box); placed.push(choice);
             return placed;
@@ -275,11 +262,12 @@
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
-            var cityName = svgNode('text', { class: 'hkw-ara-city-name', x: 0, y: 22, 'text-anchor': 'middle' });
-            cityLabelLines(city.name).forEach(function (line, index) { cityName.appendChild(svgNode('tspan', { x: 0, dy: index ? 13 : 0 }, line)); }); group.appendChild(cityName);
-            var windY = 39 + (cityLabelLines(city.name).length - 1) * 13;
-            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: -28, y: windY, transform: 'rotate(' + (row.direction + 90) + ' -28 ' + (windY - 5) + ')' }, '➤'));
-            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: -12, y: windY }, Math.round(row.wind) + ' km/h'));
+            // Le nom de ville n'est plus affiché sur la carte (déjà dans l'infobulle et
+            // l'aria-label) ; la valeur du vent n'est affichée que si elle est forte
+            // (>= 70 km/h), sinon seule la flèche de direction reste visible.
+            var windY = 24;
+            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: -20, y: windY, transform: 'rotate(' + (row.direction + 90) + ' -20 ' + (windY - 5) + ')' }, '➤'));
+            if (row.wind >= 70) { group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: -6, y: windY }, Math.round(row.wind) + ' km/h')); }
             cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
             svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.2 }));
             svg.appendChild(group);
@@ -351,7 +339,7 @@
                 // comme le Pays de Gex) rendent les étiquettes illisibles si on force les 24 villes les
                 // plus peuplées : on garde la plus peuplée de chaque groupe rapproché et on complète
                 // avec des villes plus éloignées plutôt que d'entasser un cluster.
-                var cities = pickSpreadOutCities(candidateRows, 12, 7).map(function (row) {
+                var cities = pickSpreadOutCities(candidateRows, 18, 6).map(function (row) {
                     return { code: row[0], department: department, name: row[1], lat: Number(row[4]), lon: Number(row[5]), dx: 0, dy: 0 };
                 });
                 if (!cities.length) { throw new Error('villes départementales introuvables'); }

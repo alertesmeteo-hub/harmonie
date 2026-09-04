@@ -22,7 +22,6 @@
 .hkw-ara-map-legend .hkw-ara-legend-river { stroke: #4798cf; stroke-width: 3; }
 .hkw-ara-weather-icon { font: 29px "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 .hkw-ara-temperature { fill: #b42318; font: 800 16px Arial, sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
-.hkw-ara-city-name { fill: #17230f; font: 700 11px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-arrow { fill: #0a6072; font: 800 16px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-force { fill: #0a6072; font: 800 9px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-city-dot { fill: #111; stroke: #fff; stroke-width: 1.1; }
