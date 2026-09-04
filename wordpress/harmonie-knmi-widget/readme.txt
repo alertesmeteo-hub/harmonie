@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.17
+Stable tag: 2.21.18
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,10 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.18 =
+* Beaucoup plus de forêts : les grandes forêts (Fontainebleau, Compiègne, Chantilly…) sont cartographiées sur OpenStreetMap comme des relations multi-polygones, pas comme de simples tracés — la première version de la couche forêts (2.21.17) ne récupérait que les tracés simples, d'où très peu de forêts visibles. Les relations sont maintenant assemblées en contours pleins : 494 forêts au total (contre 107).
+* Correction du point noir invisible : l'icône météo étant désormais toujours exactement à la même position que le point de repère, elle le recouvrait entièrement. Le point est maintenant dessiné après (par-dessus) l'icône, donc visible.
 
 = 2.21.17 =
 * Correction des accents mal encodés dans les noms de rivières (ex. « DrÃ´me » au lieu de « Drôme ») : le script de génération lisait les données Overpass sans forcer l'UTF-8. Fichier config/france-rivers.geojson régénéré (3 667 rivières, accents vérifiés).

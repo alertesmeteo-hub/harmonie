@@ -375,8 +375,11 @@
             group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: 68, y: 2, transform: 'rotate(' + (row.direction + 90) + ' 68 -3)' }, '➤'));
             if (row.wind >= 70) { group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: 82, y: 2 }, Math.round(row.wind) + ' km/h')); }
             cityTooltip(group, tooltip, app, city, row);
-            svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.2 }));
             svg.appendChild(group);
+            // Le point est dessiné APRÈS l'icône (donc par-dessus) : l'icône étant
+            // maintenant toujours centrée exactement sur la position réelle, un point
+            // dessiné avant elle se retrouvait entièrement caché dessous, invisible.
+            svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.2 }));
         });
         svg.appendChild(svgNode('text', { x: SIZE.width - 14, y: SIZE.height - 14, 'text-anchor': 'end', class: 'hkw-ara-brand' }, 'www.alertes-meteo.com'));
         panel.appendChild(svg); return panel;
