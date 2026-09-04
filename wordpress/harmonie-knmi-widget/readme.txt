@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.9
+Stable tag: 2.21.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,12 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.10 =
+* Remplacement du fichier des cours d’eau : passage d’un jeu de données Natural Earth 1:10m (124 fleuves à l’échelle de l’Europe) à un extrait OpenStreetMap propre à la France (3 667 rivières nommées, régénéré région par région). Les petits départements affichent désormais plusieurs rivières au lieu d’aucune.
+* Cours d’eau redessinés en deux passes (lit large semi-transparent + reflet fin et clair) pour un rendu plus net qu’un simple trait bleu uni.
+* Ajout d’un point noir cerclé de blanc à la position géographique réelle de chaque ville, sans trait de rappel (celui-ci avait été retiré en 2.21.9).
+* Suppression de l’infobulle blanche native du navigateur qui s’affichait en double avec l’infobulle personnalisée au survol d’une ville.
 
 = 2.21.9 =
 * Retrait du point et du trait pointillé de rappel ajoutés en 2.21.8 (retour à un affichage épuré).

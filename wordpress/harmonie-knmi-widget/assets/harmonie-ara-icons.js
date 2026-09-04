@@ -275,8 +275,8 @@
             var windY = 39 + (cityLabelLines(city.name).length - 1) * 13;
             group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: -28, y: windY, transform: 'rotate(' + (row.direction + 90) + ' -28 ' + (windY - 5) + ')' }, '➤'));
             group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: -12, y: windY }, Math.round(row.wind) + ' km/h'));
-            group.appendChild(svgNode('title', {}, city.name + ' · ' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm'));
             cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
+            svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.2 }));
             svg.appendChild(group);
         });
         svg.appendChild(svgNode('text', { x: SIZE.width - 14, y: SIZE.height - 14, 'text-anchor': 'end', class: 'hkw-ara-brand' }, 'www.alertes-meteo.com'));
