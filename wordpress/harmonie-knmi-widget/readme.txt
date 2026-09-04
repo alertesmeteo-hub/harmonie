@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.21
+Stable tag: 2.21.22
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,9 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.22 =
+* Chargement des rivières/forêts corrigé : la carte téléchargeait le fichier national entier (9 Mo de rivières + 1,6 Mo de forêts) même pour afficher un seul département, d'où le chargement très long signalé. Ces fichiers sont désormais découpés par département (config/rivers/{code}.geojson, config/forests/{code}.geojson, ~96 fichiers chacun) : une carte départementale ne charge plus que ~100 Ko de rivières au lieu de 9 Mo. Les cartes régionales chargent uniquement les départements affichés, avec dédoublonnage des entités à cheval sur plusieurs départements.
 
 = 2.21.21 =
 * Rivières coupées corrigées : une rivière française est souvent découpée en dizaines de tronçons OSM distincts. Le filtre précédent gardait uniquement les tronçons individuellement longs (≥ 6 km), ce qui coupait des rivières par ailleurs longues en morceaux dès qu'un tronçon intermédiaire était plus court — visible comme des rivières qui s'arrêtent en plein milieu de la carte. Le filtre porte maintenant sur la longueur totale de tous les tronçons partageant le même nom (seuil 3 km) : si une rivière est retenue, tous ses tronçons le sont, garantissant la continuité du tracé. config/france-rivers.geojson régénéré (41 814 tronçons, ~1,6 Mo compressé).

@@ -244,6 +244,22 @@
         var dLat = (lat2 - lat1) * 111; var dLon = (lon2 - lon1) * 111 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
         return Math.sqrt(dLat * dLat + dLon * dLon);
     }
+    // Une rivière/forêt à cheval sur deux départements peut apparaître dans les deux
+    // fichiers départementaux chargés pour une carte régionale ; on la dédoublonne sur
+    // nom + premier point de sa géométrie plutôt que d'ajouter un identifiant à chaque
+    // entité (le fichier resterait plus léger sans lui).
+    function dedupeFeatures(features) {
+        var seen = {}; var out = [];
+        features.forEach(function (feature) {
+            var ring = feature.geometry && feature.geometry.coordinates;
+            while (Array.isArray(ring) && Array.isArray(ring[0]) && typeof ring[0][0] !== 'number') { ring = ring[0]; }
+            var first = Array.isArray(ring) && ring[0] ? ring[0].join(',') : '';
+            var key = (feature.properties && feature.properties.name || '') + '|' + first;
+            if (seen[key]) { return; }
+            seen[key] = true; out.push(feature);
+        });
+        return out;
+    }
     // Une sélection purement par population laisse toujours de côté les villages de
     // montagne (peu peuplés) au profit des villes du fond de vallée ou du littoral.
     // On répartit donc les communes candidates (déjà triées par population décroissante)
@@ -413,8 +429,14 @@
             var region = REGIONS[slug]; var departments = Array.from(new Set(region.cities.map(function (city) { return city.department; })));
             content.replaceChildren(htmlNode('p', 'hkw-ara-icons-loading', 'Chargement des prévisions HARMONIE…'));
             if (app.dataset.customTitle !== 'oui') { heading.textContent = 'Prévisions météo — ' + region.name; }
-            Promise.all([boundaryPromise, fetchJson(app.dataset.riversUrl), fetchJson(app.dataset.forestsUrl)].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); }))).then(function (payloads) {
-                var geojson = payloads.shift(); var riverData = payloads.shift(); var forestData = payloads.shift(); var byDepartment = {}; departments.forEach(function (code, index) { byDepartment[code] = payloads[index]; });
+            // Un fichier rivières/forêts par département (plutôt qu'un unique fichier national
+            // de plusieurs Mo) : une carte régionale ne charge que les départements qu'elle
+            // affiche réellement. Une rivière à cheval sur deux départements de la région peut
+            // être présente dans les deux fichiers ; dedupeFeatures() ci-dessous évite de la
+            // dessiner deux fois.
+            Promise.all([boundaryPromise].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); })).concat(departments.map(function (code) { return fetchJson(app.dataset.riversBaseUrl + code + '.geojson'); })).concat(departments.map(function (code) { return fetchJson(app.dataset.forestsBaseUrl + code + '.geojson'); }))).then(function (payloads) {
+                var geojson = payloads.shift(); var byDepartment = {}; departments.forEach(function (code, index) { byDepartment[code] = payloads[index]; });
+                var riverPayloads = payloads.splice(0, departments.length); var forestPayloads = payloads.splice(0, departments.length);
                 var forecasts = {}; region.cities.forEach(function (city) { forecasts[city.code] = parseDepartment(byDepartment[city.department], city, tools); });
                 var firstRows = []; region.cities.some(function (city) { firstRows = forecasts[city.code] || []; return firstRows.length > 0; });
                 var days = Array.from(new Set(firstRows.map(function (row) { return row.day; }))).slice(0, 3);
@@ -424,8 +446,8 @@
                     var payload = byDepartment[code];
                     return points.concat((payload && payload.points || []).map(function (row) { return { lat: Number(row[1]), lon: Number(row[2]), altitude: Math.max(0, Number(row[3]) || 0) }; }));
                 }, []);
-                var rivers = riverData.features || [];
-                var forests = forestData.features || [];
+                var rivers = dedupeFeatures(riverPayloads.reduce(function (all, p) { return all.concat(p.features || []); }, []));
+                var forests = dedupeFeatures(forestPayloads.reduce(function (all, p) { return all.concat(p.features || []); }, []));
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
@@ -436,7 +458,7 @@
         }
         function loadDepartment(department) {
             content.replaceChildren(htmlNode('p', 'hkw-ara-icons-loading', 'Chargement des prévisions HARMONIE…'));
-            Promise.all([boundaryPromise, fetchJson(base + '/departements/' + department + '.json'), fetchJson(app.dataset.riversUrl), fetchJson(app.dataset.forestsUrl)]).then(function (payloads) {
+            Promise.all([boundaryPromise, fetchJson(base + '/departements/' + department + '.json'), fetchJson(app.dataset.riversBaseUrl + department + '.geojson'), fetchJson(app.dataset.forestsBaseUrl + department + '.geojson')]).then(function (payloads) {
                 var geojson = payloads[0]; var payload = payloads[1]; var riverData = payloads[2]; var forestData = payloads[3];
                 var boundaries = (geojson.features || []).filter(function (feature) { return String(feature.properties.code).toUpperCase() === department; });
                 if (!boundaries.length) { throw new Error('contour départemental introuvable'); }
