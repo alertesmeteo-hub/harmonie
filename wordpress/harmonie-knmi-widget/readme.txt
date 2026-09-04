@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.5
+Stable tag: 2.21.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,9 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.6 =
+* Correction : le relief n’était jamais chargé ni affiché sur les cartes régionales (seules les cartes départementales le recevaient) ; il est désormais agrégé à partir de tous les départements de la région.
 
 = 2.21.5 =
 * Cartes Matin/Après-midi affichées l’une sous l’autre (au lieu de côte à côte) et agrandies pour occuper toute la largeur.

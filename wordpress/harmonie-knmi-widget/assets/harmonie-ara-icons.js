@@ -277,17 +277,22 @@
             var region = REGIONS[slug]; var departments = Array.from(new Set(region.cities.map(function (city) { return city.department; })));
             content.replaceChildren(htmlNode('p', 'hkw-ara-icons-loading', 'Chargement des prévisions HARMONIE…'));
             if (app.dataset.customTitle !== 'oui') { heading.textContent = 'Prévisions météo — ' + region.name; }
-            Promise.all([boundaryPromise].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); }))).then(function (payloads) {
-                var geojson = payloads.shift(); var byDepartment = {}; departments.forEach(function (code, index) { byDepartment[code] = payloads[index]; });
+            Promise.all([boundaryPromise, fetchJson(app.dataset.riversUrl)].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); }))).then(function (payloads) {
+                var geojson = payloads.shift(); var riverData = payloads.shift(); var byDepartment = {}; departments.forEach(function (code, index) { byDepartment[code] = payloads[index]; });
                 var forecasts = {}; region.cities.forEach(function (city) { forecasts[city.code] = parseDepartment(byDepartment[city.department], city, tools); });
                 var firstRows = []; region.cities.some(function (city) { firstRows = forecasts[city.code] || []; return firstRows.length > 0; });
                 var days = Array.from(new Set(firstRows.map(function (row) { return row.day; }))).slice(0, 3);
                 var boundaries = (geojson.features || []).filter(function (feature) { return departments.indexOf(String(feature.properties.code).toUpperCase()) >= 0; });
                 if (!days.length || !boundaries.length) { throw new Error('données régionales incomplètes'); }
+                var terrain = departments.reduce(function (points, code) {
+                    var payload = byDepartment[code];
+                    return points.concat((payload && payload.points || []).map(function (row) { return { lat: Number(row[1]), lon: Number(row[2]), altitude: Math.max(0, Number(row[3]) || 0) }; }));
+                }, []);
+                var rivers = riverData.features || [];
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });
