@@ -366,6 +366,11 @@
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
+            // Petit point de repère décalé sous l'icône (et non plus dessus/dessous à
+            // l'identique) : posé en plein milieu de l'icône météo, il ressemblait à une
+            // tache sur le pictogramme. Décalé en bas à gauche, il reste visible sans
+            // gêner la lecture de l'icône, de la température ou du vent.
+            group.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: -15, cy: 14, r: 3 }));
             group.appendChild(weatherIconGroup(weatherIconKind(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
             // Le nom de ville n'est plus affiché sur la carte (déjà dans l'infobulle et
@@ -376,10 +381,6 @@
             if (row.wind >= 70) { group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: 82, y: 2 }, Math.round(row.wind) + ' km/h')); }
             cityTooltip(group, tooltip, app, city, row);
             svg.appendChild(group);
-            // Le point est dessiné APRÈS l'icône (donc par-dessus) : l'icône étant
-            // maintenant toujours centrée exactement sur la position réelle, un point
-            // dessiné avant elle se retrouvait entièrement caché dessous, invisible.
-            svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.2 }));
         });
         svg.appendChild(svgNode('text', { x: SIZE.width - 14, y: SIZE.height - 14, 'text-anchor': 'end', class: 'hkw-ara-brand' }, 'www.alertes-meteo.com'));
         panel.appendChild(svg); return panel;

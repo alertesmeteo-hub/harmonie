@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.18
+Stable tag: 2.21.19
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,10 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.19 =
+* Seuil de superficie des forêts abaissé de 5 à 2 km² : en zone de montagne (Pyrénées notamment), les forêts sont souvent plus petites/fragmentées que les grands massifs de plaine et étaient exclues à tort. 1101 forêts au total (contre 494), présence vérifiée dans les Pyrénées-Orientales (Madrès, Aiguebonnes, Gailles, Callong-Mirailles…).
+* Repositionnement du point de repère : posé en plein centre de l'icône météo (donc superposé au pictogramme), il ressemblait à une tache. Décalé légèrement en bas à gauche de l'icône, sans gêner sa lecture.
 
 = 2.21.18 =
 * Beaucoup plus de forêts : les grandes forêts (Fontainebleau, Compiègne, Chantilly…) sont cartographiées sur OpenStreetMap comme des relations multi-polygones, pas comme de simples tracés — la première version de la couche forêts (2.21.17) ne récupérait que les tracés simples, d'où très peu de forêts visibles. Les relations sont maintenant assemblées en contours pleins : 494 forêts au total (contre 107).
