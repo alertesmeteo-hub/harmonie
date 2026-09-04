@@ -12,6 +12,9 @@
 .hkw-ara-icon-panel h3 { margin: 0; padding: 13px 16px; background: #dcedad; color: #234512; font-size: 20px; }
 .hkw-ara-icon-panel svg { display: block; width: 100%; height: auto; background: linear-gradient(#f7fbe9, #f0f7d9); }
 .hkw-ara-departments path { fill: rgba(35,60,15,.12); stroke: #688650; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.hkw-ara-forest { cursor: pointer; outline: none; }
+.hkw-ara-forest path { fill: rgba(30,90,30,.28); stroke: rgba(24,70,24,.4); stroke-width: 1; pointer-events: fill; }
+.hkw-ara-forest:hover path, .hkw-ara-forest:focus path { fill: rgba(30,90,30,.4); }
 .hkw-ara-relief circle { opacity: .62; }
 .hkw-ara-rivers path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .hkw-ara-river-bed { stroke: #2f6fa8; stroke-width: 3.2; opacity: .5; }
@@ -23,13 +26,21 @@
 .hkw-ara-map-legend text { fill: #29411f; font: 700 10px Arial, sans-serif; }
 .hkw-ara-map-legend .hkw-ara-legend-title { font-size: 12px; }
 .hkw-ara-map-legend .hkw-ara-legend-river { stroke: #4798cf; stroke-width: 3; }
-.hkw-ara-weather-icon { font: 29px "Segoe UI Emoji", "Apple Color Emoji", sans-serif; }
 .hkw-ara-temperature { fill: #b42318; font: 800 16px Arial, sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
 .hkw-ara-wind-arrow { fill: #0a6072; font: 800 16px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-force { fill: #0a6072; font: 800 9px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-city-dot { fill: #111; stroke: #fff; stroke-width: 1.1; }
 .hkw-ara-city { cursor: pointer; outline: none; }
-.hkw-ara-city:focus .hkw-ara-weather-icon { filter: drop-shadow(0 0 3px #174f2c); }
+.hkw-ara-city:focus .hkw-ara-icon { filter: drop-shadow(0 0 3px #174f2c); }
+/* Icônes météo vectorielles (au lieu d'emoji dépendant d'une police système absente
+   sur certains appareils, qui s'affichait alors comme un carré blanc vide). */
+.hkw-ara-cloud ellipse, .hkw-ara-cloud circle { fill: #eef2f7; stroke: #aebcc7; stroke-width: 1; }
+.hkw-ara-icon-sun circle { fill: #ffb703; stroke: #e2861a; stroke-width: .6; }
+.hkw-ara-icon-sun line { stroke: #ffb703; stroke-width: 2.2; stroke-linecap: round; }
+.hkw-ara-icon-rain line { stroke: #2f8fd1; stroke-width: 2; stroke-linecap: round; }
+.hkw-ara-icon-snow line { stroke: #6fb3de; stroke-width: 1.7; stroke-linecap: round; }
+.hkw-ara-icon-fog line { stroke: #98a5ad; stroke-width: 2.2; stroke-linecap: round; }
+.hkw-ara-icon-wind path { fill: none; stroke: #0a6072; stroke-width: 2; stroke-linecap: round; }
 .hkw-ara-tooltip { position: absolute; z-index: 10; min-width: 205px; padding: 9px 12px; border: 1px solid #476d30; border-radius: 9px; background: rgba(21,48,28,.96); color: #fff; font-size: 13px; font-weight: 700; line-height: 1.45; white-space: pre-line; box-shadow: 0 3px 12px rgba(0,0,0,.25); pointer-events: none; }
 .hkw-ara-tooltip-title { margin-bottom: 3px; color: #9fe870; font-size: 15px; font-weight: 800; }
 .hkw-ara-brand { fill: #173d27; font: 800 15px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 4px; }

@@ -122,11 +122,76 @@
         if (altitude < 1000) { return '#ab8560'; } if (altitude < 1500) { return '#8f7061'; }
         if (altitude < 2000) { return '#8b7d78'; } return '#eee9e1';
     }
-    function weatherIcon(code, precipitation, cloud) {
-        if (code === 7) { return '🌨️'; } if (code === 8) { return '🌫️'; } if (code === 9) { return '💨'; }
-        if (precipitation >= .2 || code === 5 || code === 6) { return '🌧️'; }
-        if (code >= 4 || cloud >= 85) { return '☁️'; } if (code >= 3 || cloud >= 55) { return '⛅'; }
-        if (code === 2 || cloud >= 20) { return '🌤️'; } return '☀️';
+    function weatherIconKind(code, precipitation, cloud) {
+        if (code === 7) { return 'snow'; } if (code === 8) { return 'fog'; } if (code === 9) { return 'wind'; }
+        if (precipitation >= .2 || code === 5 || code === 6) { return 'rain'; }
+        if (code >= 4 || cloud >= 85) { return 'cloudy'; } if (code >= 3 || cloud >= 55) { return 'partly-cloudy'; }
+        if (code === 2 || cloud >= 20) { return 'few-clouds'; } return 'clear';
+    }
+    // Icônes météo dessinées en formes vectorielles plutôt qu'en emoji : les emoji
+    // dépendent d'une police système (Segoe UI Emoji, Noto Color Emoji…) qui n'est pas
+    // toujours installée — sans elle, le glyphe s'affiche comme un carré blanc vide.
+    function weatherIconGroup(kind) {
+        var g = svgNode('g', { class: 'hkw-ara-icon' });
+        function cloud(cx, cy, scale) {
+            var grp = svgNode('g', { class: 'hkw-ara-cloud', transform: 'translate(' + cx + ' ' + cy + ') scale(' + scale + ')' });
+            grp.appendChild(svgNode('ellipse', { cx: 0, cy: 5, rx: 11, ry: 6 }));
+            grp.appendChild(svgNode('circle', { cx: -7, cy: -1, r: 6 }));
+            grp.appendChild(svgNode('circle', { cx: 1, cy: -4, r: 7.5 }));
+            grp.appendChild(svgNode('circle', { cx: 8, cy: 0, r: 5 }));
+            return grp;
+        }
+        function sun(cx, cy, r) {
+            var grp = svgNode('g', { class: 'hkw-ara-icon-sun' });
+            grp.appendChild(svgNode('circle', { cx: cx, cy: cy, r: r }));
+            for (var i = 0; i < 8; i++) {
+                var angle = i * Math.PI / 4;
+                var x1 = cx + Math.cos(angle) * (r + 2), y1 = cy + Math.sin(angle) * (r + 2);
+                var x2 = cx + Math.cos(angle) * (r + 5), y2 = cy + Math.sin(angle) * (r + 5);
+                grp.appendChild(svgNode('line', { x1: x1.toFixed(1), y1: y1.toFixed(1), x2: x2.toFixed(1), y2: y2.toFixed(1) }));
+            }
+            return grp;
+        }
+        function drops(cx, cy) {
+            var grp = svgNode('g', { class: 'hkw-ara-icon-rain' });
+            [-6, 0, 6].forEach(function (dx, i) {
+                grp.appendChild(svgNode('line', { x1: cx + dx, y1: cy + (i % 2 ? 1 : -1), x2: cx + dx - 2, y2: cy + 7 }));
+            });
+            return grp;
+        }
+        function flakes(cx, cy) {
+            var grp = svgNode('g', { class: 'hkw-ara-icon-snow' });
+            [-6, 0, 6].forEach(function (dx) {
+                var fx = cx + dx, fy = cy + 4;
+                [0, 60, 120].forEach(function (deg) {
+                    var rad = deg * Math.PI / 180; var lx = Math.cos(rad) * 3, ly = Math.sin(rad) * 3;
+                    grp.appendChild(svgNode('line', { x1: (fx - lx).toFixed(1), y1: (fy - ly).toFixed(1), x2: (fx + lx).toFixed(1), y2: (fy + ly).toFixed(1) }));
+                });
+            });
+            return grp;
+        }
+        function fogLines(cx, cy) {
+            var grp = svgNode('g', { class: 'hkw-ara-icon-fog' });
+            [-4, 1, 6].forEach(function (dy) { grp.appendChild(svgNode('line', { x1: cx - 11, y1: cy + dy, x2: cx + 11, y2: cy + dy })); });
+            return grp;
+        }
+        function windLines(cx, cy) {
+            var grp = svgNode('g', { class: 'hkw-ara-icon-wind' });
+            [[-9,-5,8,-5],[-10,0,10,0],[-9,5,6,5]].forEach(function (l) {
+                grp.appendChild(svgNode('path', { d: 'M' + (cx + l[0]) + ',' + (cy + l[1]) + ' Q' + (cx + l[2] - 3) + ',' + (cy + l[3] - 4) + ' ' + (cx + l[2]) + ',' + (cy + l[3]) }));
+            });
+            return grp;
+        }
+        if (kind === 'clear') { g.appendChild(sun(0, 0, 7)); }
+        else if (kind === 'few-clouds') { g.appendChild(sun(-5, -4, 6)); g.appendChild(cloud(4, 4, .62)); }
+        else if (kind === 'partly-cloudy') { g.appendChild(sun(-6, -5, 5)); g.appendChild(cloud(2, 3, .85)); }
+        else if (kind === 'cloudy') { g.appendChild(cloud(0, 1, 1)); }
+        else if (kind === 'rain') { g.appendChild(cloud(0, -3, .85)); g.appendChild(drops(0, 6)); }
+        else if (kind === 'snow') { g.appendChild(cloud(0, -3, .85)); g.appendChild(flakes(0, 8)); }
+        else if (kind === 'fog') { g.appendChild(cloud(0, -6, .6)); g.appendChild(fogLines(0, 2)); }
+        else if (kind === 'wind') { g.appendChild(windLines(0, 0)); }
+        else { g.appendChild(sun(0, 0, 7)); }
+        return g;
     }
     function makeTimeTools(timezone) {
         return { key: new Intl.DateTimeFormat('fr-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }), hour: new Intl.DateTimeFormat('fr-FR', { timeZone: timezone, hour: '2-digit', hourCycle: 'h23' }), label: new Intl.DateTimeFormat('fr-FR', { timeZone: timezone, weekday: 'long', day: '2-digit', month: '2-digit' }) };
@@ -166,10 +231,10 @@
             node.appendChild(htmlNode('div', '', Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h'));
         });
     }
-    function riverTooltip(element, tooltip, app, name) {
+    function labeledTooltip(element, tooltip, app, name, label) {
         attachTooltip(element, tooltip, app, function (node) {
             node.appendChild(htmlNode('div', 'hkw-ara-tooltip-title', name));
-            node.appendChild(htmlNode('div', '', 'Cours d’eau'));
+            node.appendChild(htmlNode('div', '', label));
         });
     }
     function windDirectionLabel(direction) {
@@ -238,7 +303,7 @@
             return placed;
         }, []);
     }
-    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers) {
+    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
         var clipId = 'hkw-department-clip-' + (++mapSequence);
@@ -261,6 +326,18 @@
         }
         var mapGroup = svgNode('g', { class: 'hkw-ara-departments' });
         boundaries.forEach(function (feature) { mapGroup.appendChild(svgNode('path', { d: geometryPath(feature.geometry, project) })); }); svg.appendChild(mapGroup);
+        if (forests && forests.length) {
+            var forestGroup = svgNode('g', { class: 'hkw-ara-forests', 'clip-path': 'url(#' + clipId + ')' });
+            forests.forEach(function (feature) {
+                var path = geometryPath(feature.geometry, project); var name = feature.properties && feature.properties.name;
+                if (!path) { return; }
+                var forestItem = svgNode('g', { class: 'hkw-ara-forest', tabindex: name ? '0' : '-1', 'aria-label': name || undefined });
+                forestItem.appendChild(svgNode('path', { d: path }));
+                if (name) { labeledTooltip(forestItem, tooltip, app, name, 'Forêt'); }
+                forestGroup.appendChild(forestItem);
+            });
+            svg.appendChild(forestGroup);
+        }
         if (rivers && rivers.length) {
             var riverGroup = svgNode('g', { class: 'hkw-ara-rivers', 'clip-path': 'url(#' + clipId + ')' });
             rivers.forEach(function (feature) {
@@ -269,7 +346,7 @@
                 var riverItem = svgNode('g', { class: 'hkw-ara-river', tabindex: name ? '0' : '-1', 'aria-label': name || undefined });
                 riverItem.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-bed' }));
                 riverItem.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-flow' }));
-                if (name) { riverTooltip(riverItem, tooltip, app, name); }
+                if (name) { labeledTooltip(riverItem, tooltip, app, name, 'Cours d’eau'); }
                 riverGroup.appendChild(riverItem);
             });
             svg.appendChild(riverGroup);
@@ -289,7 +366,7 @@
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
-            group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
+            group.appendChild(weatherIconGroup(weatherIconKind(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
             // Le nom de ville n'est plus affiché sur la carte (déjà dans l'infobulle et
             // l'aria-label) ; la flèche de direction du vent est alignée à côté de la
@@ -333,8 +410,8 @@
             var region = REGIONS[slug]; var departments = Array.from(new Set(region.cities.map(function (city) { return city.department; })));
             content.replaceChildren(htmlNode('p', 'hkw-ara-icons-loading', 'Chargement des prévisions HARMONIE…'));
             if (app.dataset.customTitle !== 'oui') { heading.textContent = 'Prévisions météo — ' + region.name; }
-            Promise.all([boundaryPromise, fetchJson(app.dataset.riversUrl)].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); }))).then(function (payloads) {
-                var geojson = payloads.shift(); var riverData = payloads.shift(); var byDepartment = {}; departments.forEach(function (code, index) { byDepartment[code] = payloads[index]; });
+            Promise.all([boundaryPromise, fetchJson(app.dataset.riversUrl), fetchJson(app.dataset.forestsUrl)].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); }))).then(function (payloads) {
+                var geojson = payloads.shift(); var riverData = payloads.shift(); var forestData = payloads.shift(); var byDepartment = {}; departments.forEach(function (code, index) { byDepartment[code] = payloads[index]; });
                 var forecasts = {}; region.cities.forEach(function (city) { forecasts[city.code] = parseDepartment(byDepartment[city.department], city, tools); });
                 var firstRows = []; region.cities.some(function (city) { firstRows = forecasts[city.code] || []; return firstRows.length > 0; });
                 var days = Array.from(new Set(firstRows.map(function (row) { return row.day; }))).slice(0, 3);
@@ -345,18 +422,19 @@
                     return points.concat((payload && payload.points || []).map(function (row) { return { lat: Number(row[1]), lon: Number(row[2]), altitude: Math.max(0, Number(row[3]) || 0) }; }));
                 }, []);
                 var rivers = riverData.features || [];
+                var forests = forestData.features || [];
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });
         }
         function loadDepartment(department) {
             content.replaceChildren(htmlNode('p', 'hkw-ara-icons-loading', 'Chargement des prévisions HARMONIE…'));
-            Promise.all([boundaryPromise, fetchJson(base + '/departements/' + department + '.json'), fetchJson(app.dataset.riversUrl)]).then(function (payloads) {
-                var geojson = payloads[0]; var payload = payloads[1]; var riverData = payloads[2];
+            Promise.all([boundaryPromise, fetchJson(base + '/departements/' + department + '.json'), fetchJson(app.dataset.riversUrl), fetchJson(app.dataset.forestsUrl)]).then(function (payloads) {
+                var geojson = payloads[0]; var payload = payloads[1]; var riverData = payloads[2]; var forestData = payloads[3];
                 var boundaries = (geojson.features || []).filter(function (feature) { return String(feature.properties.code).toUpperCase() === department; });
                 if (!boundaries.length) { throw new Error('contour départemental introuvable'); }
                 var candidateRows = (payload.communes || []).filter(function (row) {
@@ -378,13 +456,14 @@
                 var forecasts = {}; cities.forEach(function (city) { forecasts[city.code] = parseDepartment(payload, city, tools); });
                 var terrain = (payload.points || []).map(function (row) { return { lat: Number(row[1]), lon: Number(row[2]), altitude: Math.max(0, Number(row[3]) || 0) }; });
                 var rivers = riverData.features || [];
+                var forests = forestData.features || [];
                 var firstRows = []; cities.some(function (city) { firstRows = forecasts[city.code] || []; return firstRows.length > 0; });
                 var days = Array.from(new Set(firstRows.map(function (row) { return row.day; }))).slice(0, 3);
                 if (!days.length) { throw new Error('prévisions départementales indisponibles'); }
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });

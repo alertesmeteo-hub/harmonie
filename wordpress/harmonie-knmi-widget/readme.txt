@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.16
+Stable tag: 2.21.17
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,11 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.17 =
+* Correction des accents mal encodés dans les noms de rivières (ex. « DrÃ´me » au lieu de « Drôme ») : le script de génération lisait les données Overpass sans forcer l'UTF-8. Fichier config/france-rivers.geojson régénéré (3 667 rivières, accents vérifiés).
+* Ajout d'une couche « grandes forêts » : polygones OSM (natural=wood / landuse=forest) nommés de plus de 5 km², avec infobulle au survol (nouveau fichier config/france-forests.geojson, 107 forêts).
+* Icônes météo redessinées en formes vectorielles (soleil, nuages, pluie, neige, brouillard, vent) au lieu d'emoji système : sur les appareils sans police d'emoji couleur installée, l'emoji s'affichait comme un carré blanc vide.
 
 = 2.21.16 =
 * Sélection des villes départementales par grille géographique (au lieu du seul classement par population) : les villages de montagne, jusqu'ici toujours écartés au profit du fond de vallée ou du littoral, ont maintenant leur place. Nombre de villes candidates porté à 28 (le rendu strict garantit qu'aucune ne se superpose).
