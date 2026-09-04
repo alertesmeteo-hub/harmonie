@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.13
+Stable tag: 2.21.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,9 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.14 =
+* Cours d'eau régénérés avec une vraie simplification Douglas-Peucker (au lieu d'un décimage naïf « un point sur N ») : les tracés suivent bien mieux les méandres réels au lieu de les couper en lignes droites disgracieuses. Résultat aussi plus léger (2,4 Mo au lieu de 3,8 Mo) pour un nombre de rivières identique (3 667).
 
 = 2.21.13 =
 * Nom de ville retiré de la carte (déjà présent dans l'infobulle et l'aria-label) : l'empreinte de chaque ville est désormais fixe et compacte (icône + température + éventuel vent fort), ce qui permet à l'étiquette de rester quasiment collée à son point de repère au lieu d'en être décalée.
