@@ -177,41 +177,26 @@
     function boxesOverlap(first, second) {
         return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
     }
-    // Plus de nom de ville sur la carte (déjà dans l'infobulle) : l'empreinte de chaque
-    // ville est désormais fixe et compacte (icône + température + éventuelle vitesse de
-    // vent forte), ce qui permet à l'étiquette de rester au plus près de son point réel.
+    // Plus de nom de ville sur la carte (déjà dans l'infobulle) : icône + température +
+    // flèche de vent sur une seule ligne compacte, fixe en largeur/hauteur.
     function cityBox(x, y) {
-        return { left: x - 34, right: x + 48, top: y - 20, bottom: y + 34 };
+        return { left: x - 20, right: x + 86, top: y - 18, bottom: y + 16 };
     }
-    function layoutCities(cities, project, reserveLegend, strict) {
+    // L'icône reste TOUJOURS exactement sur la position géographique réelle de la ville
+    // (aucun décalage) : un décalage, même petit, donnait l'impression au survol que
+    // l'œil associait le point noir au mauvais nom de ville voisin. En cas de conflit
+    // avec une ville déjà placée, on omet la ville plutôt que de la déplacer.
+    function layoutCities(cities, project, reserveLegend) {
         var occupied = reserveLegend ? [{ left: 10, right: 270, top: 720, bottom: 808 }] : [];
-        // Décalages volontairement modestes : un décalage trop grand entre le point (position
-        // réelle) et l'étiquette donne l'impression que la ville est mal placée. Si aucune de
-        // ces positions proches ne convient, la ville est omise (mode strict) plutôt que
-        // déplacée loin de son point.
-        var candidates = [[0,0],[0,-40],[0,42],[46,-18],[-46,-18],[48,24],[-48,24],[0,-66],[0,66]];
         return cities.reduce(function (placed, city) {
-            var base = project([city.lon, city.lat]); var choice = null; var fallback = null; var fallbackOverlaps = Infinity;
-            candidates.some(function (offset) {
-                var x = base[0] + offset[0], y = base[1] + offset[1], box = cityBox(x, y);
-                if (box.left < 2 || box.right > SIZE.width - 2 || box.top < 2 || box.bottom > SIZE.height - 2) { return false; }
-                var overlaps = occupied.filter(function (other) { return boxesOverlap(box, other); }).length;
-                if (overlaps === 0) { choice = { city: city, base: base, x: x, y: y, box: box }; return true; }
-                if (overlaps < fallbackOverlaps) { fallbackOverlaps = overlaps; fallback = { city: city, base: base, x: x, y: y, box: box }; }
-                return false;
-            });
-            // Une étiquette qui chevauche une autre les rend toutes les deux illisibles : en mode
-            // strict (cartes départementales, où l'on force jusqu'à 24 villes) on préfère omettre
-            // une ville plutôt que de superposer son étiquette à une autre déjà placée. En mode
-            // large (cartes régionales, peu de villes très espacées) on garde un repli pour éviter
-            // qu'une ville ne disparaisse totalement alors qu'il y a largement la place.
-            if (!choice && !strict) { choice = fallback || { city: city, base: base, x: base[0], y: base[1], box: cityBox(base[0], base[1]) }; }
-            if (!choice) { return placed; }
-            occupied.push(choice.box); placed.push(choice);
+            var base = project([city.lon, city.lat]); var box = cityBox(base[0], base[1]);
+            if (box.left < 2 || box.right > SIZE.width - 2 || box.top < 2 || box.bottom > SIZE.height - 2) { return placed; }
+            if (occupied.some(function (other) { return boxesOverlap(box, other); })) { return placed; }
+            occupied.push(box); placed.push({ city: city, base: base, x: base[0], y: base[1], box: box });
             return placed;
         }, []);
     }
-    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, strictLayout) {
+    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
         var clipId = 'hkw-department-clip-' + (++mapSequence);
@@ -255,7 +240,7 @@
             });
             svg.appendChild(legend);
         }
-        layoutCities(region.cities, project, showReliefLegend, strictLayout).forEach(function (layout) {
+        layoutCities(region.cities, project, showReliefLegend).forEach(function (layout) {
             var city = layout.city;
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
@@ -263,11 +248,11 @@
             group.appendChild(svgNode('text', { class: 'hkw-ara-weather-icon', x: 0, y: 0, 'text-anchor': 'middle' }, weatherIcon(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
             // Le nom de ville n'est plus affiché sur la carte (déjà dans l'infobulle et
-            // l'aria-label) ; la valeur du vent n'est affichée que si elle est forte
-            // (>= 70 km/h), sinon seule la flèche de direction reste visible.
-            var windY = 24;
-            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: -20, y: windY, transform: 'rotate(' + (row.direction + 90) + ' -20 ' + (windY - 5) + ')' }, '➤'));
-            if (row.wind >= 70) { group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: -6, y: windY }, Math.round(row.wind) + ' km/h')); }
+            // l'aria-label) ; la flèche de direction du vent est alignée à côté de la
+            // température (au lieu d'une seconde ligne) et la valeur numérique n'est
+            // affichée que si le vent est fort (>= 70 km/h).
+            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: 52, y: 2, transform: 'rotate(' + (row.direction + 90) + ' 52 -3)' }, '➤'));
+            if (row.wind >= 70) { group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: 66, y: 2 }, Math.round(row.wind) + ' km/h')); }
             cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
             svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.2 }));
             svg.appendChild(group);
@@ -355,7 +340,7 @@
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, true), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, true));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });

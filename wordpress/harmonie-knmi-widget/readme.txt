@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.14
+Stable tag: 2.21.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,11 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.15 =
+* Positionnement des villes rendu strict : l'icône reste désormais toujours exactement sur la position géographique réelle (plus aucun décalage), une ville en conflit avec une autre est omise plutôt que déplacée. L'ancien système de décalage (jusqu'à 66 px) donnait l'impression au survol que le point noir était associé à la mauvaise ville voisine.
+* Icône, température et flèche de direction du vent alignées sur une seule ligne compacte (au lieu d'une flèche sous la température) ; la valeur numérique du vent reste affichée seulement si elle dépasse 70 km/h.
+* Ajout d'un pied de page (version du plugin + date) sur la carte à pictogrammes régionale/départementale, comme sur le tableau de prévisions.
 
 = 2.21.14 =
 * Cours d'eau régénérés avec une vraie simplification Douglas-Peucker (au lieu d'un décimage naïf « un point sur N ») : les tracés suivent bien mieux les méandres réels au lieu de les couper en lignes droites disgracieuses. Résultat aussi plus léger (2,4 Mo au lieu de 3,8 Mo) pour un nombre de rivières identique (3 667).

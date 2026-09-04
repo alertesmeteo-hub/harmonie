@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.21.14
+ * Version: 2.21.15
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,8 +14,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.21.14');
-define('HKW_RELEASE_DATE', '2026-09-02');
+define('HKW_VERSION', '2.21.15');
+define('HKW_RELEASE_DATE', '2026-09-04');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
     'HKW_DEFAULT_BASE_URL',
@@ -332,6 +332,7 @@ function hkw_render_ara_icon_map_shortcode($atts) {
     >
         <h2><?php echo esc_html($title); ?></h2>
         <p class="hkw-ara-icons-loading" role="status">Chargement des prévisions HARMONIE…</p>
+        <footer class="hkw-ara-footer">Plugin HARMONIE v<?php echo esc_html(HKW_VERSION); ?> (<?php echo esc_html(HKW_RELEASE_DATE); ?>)</footer>
     </section>
     <?php
     return ob_get_clean();

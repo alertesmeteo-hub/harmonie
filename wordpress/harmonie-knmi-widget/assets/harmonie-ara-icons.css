@@ -1,4 +1,4 @@
-.hkw-ara-icons { position: relative; width: 100%; max-width: 1600px; margin: 0 auto; color: #17230f; font-family: Arial, Helvetica, sans-serif; }
+.hkw-ara-icons { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 1600px; margin: 0 auto; color: #17230f; font-family: Arial, Helvetica, sans-serif; }
 .hkw-ara-icons > h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.2; }
 .hkw-region-controls { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-weight: 700; }
 .hkw-region-selector { min-width: 280px; max-width: 100%; padding: 9px 36px 9px 12px; border: 1px solid #98bd6e; border-radius: 8px; background: #fff; color: #234512; font: inherit; }
@@ -31,6 +31,7 @@
 .hkw-ara-brand { fill: #173d27; font: 800 15px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 4px; }
 .hkw-ara-icons-loading, .hkw-ara-icons-error { padding: 20px; border-radius: 12px; background: #edf8c8; color: #486232; }
 .hkw-ara-icons-error { color: #a12622; }
+.hkw-ara-footer { order: 100; margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: #edf8c8; color: #4d6250; font-size: .72rem; }
 @media (max-width: 760px) {
     .hkw-ara-icons > h2 { font-size: 25px; }
     .hkw-region-controls { align-items: stretch; flex-direction: column; }
