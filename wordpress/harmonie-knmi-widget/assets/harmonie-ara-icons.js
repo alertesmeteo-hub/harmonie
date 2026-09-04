@@ -64,7 +64,7 @@
     }
     function svgNode(name, attributes, value) {
         var node = document.createElementNS('http://www.w3.org/2000/svg', name);
-        Object.keys(attributes || {}).forEach(function (key) { node.setAttribute(key, attributes[key]); });
+        Object.keys(attributes || {}).forEach(function (key) { if (attributes[key] !== undefined) { node.setAttribute(key, attributes[key]); } });
         if (value !== undefined) { node.textContent = value; }
         return node;
     }
@@ -147,15 +147,30 @@
         tooltip.style.left = Math.min(Math.max(8, event.clientX - bounds.left + 14), Math.max(8, bounds.width - 244)) + 'px';
         tooltip.style.top = Math.max(8, event.clientY - bounds.top + 14) + 'px';
     }
-    function cityTooltip(group, tooltip, app, message) {
-        function show(event) { tooltip.textContent = message; tooltip.hidden = false; if (event && event.clientX) { placeTooltip(tooltip, app, event); } }
+    // `render(tooltip)` remplit le contenu de l'infobulle (DOM, pas de texte concaténé)
+    // au moment de l'affichage : réutilisé aussi bien pour les villes que les rivières.
+    function attachTooltip(target, tooltip, app, render) {
+        function paint() { tooltip.replaceChildren(); render(tooltip); }
+        function show(event) { paint(); tooltip.hidden = false; if (event && event.clientX) { placeTooltip(tooltip, app, event); } }
         function hide() { tooltip.hidden = true; }
-        group.addEventListener('pointerenter', show);
-        group.addEventListener('pointermove', show);
-        group.addEventListener('pointerleave', hide);
-        group.addEventListener('focus', function () { tooltip.textContent = message; tooltip.style.left = '8px'; tooltip.style.top = '8px'; tooltip.hidden = false; });
-        group.addEventListener('blur', hide);
-        group.addEventListener('click', function (event) { event.stopPropagation(); if (tooltip.hidden) { show(event); } else { hide(); } });
+        target.addEventListener('pointerenter', show);
+        target.addEventListener('pointermove', show);
+        target.addEventListener('pointerleave', hide);
+        target.addEventListener('focus', function () { paint(); tooltip.style.left = '8px'; tooltip.style.top = '8px'; tooltip.hidden = false; });
+        target.addEventListener('blur', hide);
+        target.addEventListener('click', function (event) { event.stopPropagation(); if (tooltip.hidden) { show(event); } else { hide(); } });
+    }
+    function cityTooltip(group, tooltip, app, city, row) {
+        attachTooltip(group, tooltip, app, function (node) {
+            node.appendChild(htmlNode('div', 'hkw-ara-tooltip-title', city.name));
+            node.appendChild(htmlNode('div', '', Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h'));
+        });
+    }
+    function riverTooltip(element, tooltip, app, name) {
+        attachTooltip(element, tooltip, app, function (node) {
+            node.appendChild(htmlNode('div', 'hkw-ara-tooltip-title', name));
+            node.appendChild(htmlNode('div', '', 'Cours d’eau'));
+        });
     }
     function windDirectionLabel(direction) {
         return ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round((direction % 360) / 45) % 8];
@@ -164,14 +179,41 @@
         var dLat = (lat2 - lat1) * 111; var dLon = (lon2 - lon1) * 111 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
         return Math.sqrt(dLat * dLat + dLon * dLon);
     }
+    // Une sélection purement par population laisse toujours de côté les villages de
+    // montagne (peu peuplés) au profit des villes du fond de vallée ou du littoral.
+    // On répartit donc les communes candidates (déjà triées par population décroissante)
+    // sur une grille géographique et on pioche à tour de rôle la plus peuplée de chaque
+    // case non encore épuisée, ce qui garantit une couverture de tout le département —
+    // reliefs compris — plutôt qu'un tas de villes concentrées au même endroit.
     function pickSpreadOutCities(rows, maxCount, minKm) {
-        var chosen = [];
-        rows.some(function (row) {
+        if (!rows.length) { return []; }
+        var lats = rows.map(function (r) { return Number(r[4]); }), lons = rows.map(function (r) { return Number(r[5]); });
+        var latMin = Math.min.apply(null, lats), latMax = Math.max.apply(null, lats);
+        var lonMin = Math.min.apply(null, lons), lonMax = Math.max.apply(null, lons);
+        var gridSize = 4;
+        var cells = {};
+        rows.forEach(function (row) {
             var lat = Number(row[4]), lon = Number(row[5]);
-            var tooClose = chosen.some(function (other) { return kmDistance(other[4], other[5], lat, lon) < minKm; });
-            if (!tooClose) { chosen.push(row); }
-            return chosen.length >= maxCount;
+            var gx = Math.min(gridSize - 1, Math.floor((lon - lonMin) / ((lonMax - lonMin) || 1) * gridSize));
+            var gy = Math.min(gridSize - 1, Math.floor((lat - latMin) / ((latMax - latMin) || 1) * gridSize));
+            var key = gx + ',' + gy;
+            (cells[key] || (cells[key] = [])).push(row);
         });
+        var cellKeys = Object.keys(cells); var cursor = {}; cellKeys.forEach(function (key) { cursor[key] = 0; });
+        var chosen = []; var progress = true;
+        while (chosen.length < maxCount && progress) {
+            progress = false;
+            cellKeys.some(function (key) {
+                var list = cells[key];
+                while (cursor[key] < list.length) {
+                    var row = list[cursor[key]++];
+                    var lat = Number(row[4]), lon = Number(row[5]);
+                    var tooClose = chosen.some(function (other) { return kmDistance(Number(other[4]), Number(other[5]), lat, lon) < minKm; });
+                    if (!tooClose) { chosen.push(row); progress = true; break; }
+                }
+                return chosen.length >= maxCount;
+            });
+        }
         return chosen;
     }
     function boxesOverlap(first, second) {
@@ -180,7 +222,7 @@
     // Plus de nom de ville sur la carte (déjà dans l'infobulle) : icône + température +
     // flèche de vent sur une seule ligne compacte, fixe en largeur/hauteur.
     function cityBox(x, y) {
-        return { left: x - 20, right: x + 86, top: y - 18, bottom: y + 16 };
+        return { left: x - 20, right: x + 112, top: y - 18, bottom: y + 16 };
     }
     // L'icône reste TOUJOURS exactement sur la position géographique réelle de la ville
     // (aucun décalage) : un décalage, même petit, donnait l'impression au survol que
@@ -222,11 +264,13 @@
         if (rivers && rivers.length) {
             var riverGroup = svgNode('g', { class: 'hkw-ara-rivers', 'clip-path': 'url(#' + clipId + ')' });
             rivers.forEach(function (feature) {
-                var path = lineGeometryPath(feature.geometry, project);
-                if (path) {
-                    riverGroup.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-bed' }));
-                    riverGroup.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-flow' }));
-                }
+                var path = lineGeometryPath(feature.geometry, project); var name = feature.properties && feature.properties.name;
+                if (!path) { return; }
+                var riverItem = svgNode('g', { class: 'hkw-ara-river', tabindex: name ? '0' : '-1', 'aria-label': name || undefined });
+                riverItem.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-bed' }));
+                riverItem.appendChild(svgNode('path', { d: path, class: 'hkw-ara-river-flow' }));
+                if (name) { riverTooltip(riverItem, tooltip, app, name); }
+                riverGroup.appendChild(riverItem);
             });
             svg.appendChild(riverGroup);
         }
@@ -251,9 +295,9 @@
             // l'aria-label) ; la flèche de direction du vent est alignée à côté de la
             // température (au lieu d'une seconde ligne) et la valeur numérique n'est
             // affichée que si le vent est fort (>= 70 km/h).
-            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: 52, y: 2, transform: 'rotate(' + (row.direction + 90) + ' 52 -3)' }, '➤'));
-            if (row.wind >= 70) { group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: 66, y: 2 }, Math.round(row.wind) + ' km/h')); }
-            cityTooltip(group, tooltip, app, city.name + '\n' + Math.round(row.temperature) + ' °C · pluie ' + row.precipitation.toFixed(1) + ' mm/h\nNuages : ' + Math.round(row.cloud) + ' %\nVent : ' + windDirectionLabel(row.direction) + ' ' + Math.round(row.wind) + ' km/h · rafales ' + Math.round(row.gust) + ' km/h');
+            group.appendChild(svgNode('text', { class: 'hkw-ara-wind-arrow', x: 68, y: 2, transform: 'rotate(' + (row.direction + 90) + ' 68 -3)' }, '➤'));
+            if (row.wind >= 70) { group.appendChild(svgNode('text', { class: 'hkw-ara-wind-force', x: 82, y: 2 }, Math.round(row.wind) + ' km/h')); }
+            cityTooltip(group, tooltip, app, city, row);
             svg.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: layout.base[0].toFixed(1), cy: layout.base[1].toFixed(1), r: 3.2 }));
             svg.appendChild(group);
         });
@@ -324,7 +368,7 @@
                 // comme le Pays de Gex) rendent les étiquettes illisibles si on force les 24 villes les
                 // plus peuplées : on garde la plus peuplée de chaque groupe rapproché et on complète
                 // avec des villes plus éloignées plutôt que d'entasser un cluster.
-                var cities = pickSpreadOutCities(candidateRows, 18, 6).map(function (row) {
+                var cities = pickSpreadOutCities(candidateRows, 28, 5).map(function (row) {
                     return { code: row[0], department: department, name: row[1], lat: Number(row[4]), lon: Number(row[5]), dx: 0, dy: 0 };
                 });
                 if (!cities.length) { throw new Error('villes départementales introuvables'); }

@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.15
+Stable tag: 2.21.16
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,14 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.16 =
+* Sélection des villes départementales par grille géographique (au lieu du seul classement par population) : les villages de montagne, jusqu'ici toujours écartés au profit du fond de vallée ou du littoral, ont maintenant leur place. Nombre de villes candidates porté à 28 (le rendu strict garantit qu'aucune ne se superpose).
+* Correction du chevauchement entre la flèche de vent et la température (ex. « 34° » à deux chiffres touchait la flèche) : espacement agrandi.
+* Couleurs retravaillées : fond hors département éclairci, intérieur du département légèrement assombri pour mieux le distinguer des alentours.
+* Infobulle au survol ajoutée sur les cours d'eau (nom de la rivière).
+* Nom de ville mis en évidence dans l'infobulle (couleur et taille distinctes du reste du texte).
+* Vérifié : l'indice UV n'est pas disponible dans les données du modèle HARMONIE-AROME (colonne absente de la source), impossible à ajouter en l'état.
 
 = 2.21.15 =
 * Positionnement des villes rendu strict : l'icône reste désormais toujours exactement sur la position géographique réelle (plus aucun décalage), une ville en conflit avec une autre est omise plutôt que déplacée. L'ancien système de décalage (jusqu'à 66 px) donnait l'impression au survol que le point noir était associé à la mauvaise ville voisine.
