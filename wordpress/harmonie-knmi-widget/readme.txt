@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.6
+Stable tag: 2.21.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,9 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.7 =
+* Correction : dans les zones à villes très rapprochées (ex. Pays de Gex), forcer l’affichage des 24 villes les plus peuplées du département créait des étiquettes totalement chevauchées et illisibles. La sélection des villes évite désormais celles trop proches (< 6 km) d’une ville déjà retenue et complète avec des villes plus éloignées.
 
 = 2.21.6 =
 * Correction : le relief n’était jamais chargé ni affiché sur les cartes régionales (seules les cartes départementales le recevaient) ; il est désormais agrégé à partir de tous les départements de la région.

@@ -158,6 +158,20 @@
     function windDirectionLabel(direction) {
         return ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round((direction % 360) / 45) % 8];
     }
+    function kmDistance(lat1, lon1, lat2, lon2) {
+        var dLat = (lat2 - lat1) * 111; var dLon = (lon2 - lon1) * 111 * Math.cos((lat1 + lat2) / 2 * Math.PI / 180);
+        return Math.sqrt(dLat * dLat + dLon * dLon);
+    }
+    function pickSpreadOutCities(rows, maxCount, minKm) {
+        var chosen = [];
+        rows.some(function (row) {
+            var lat = Number(row[4]), lon = Number(row[5]);
+            var tooClose = chosen.some(function (other) { return kmDistance(other[4], other[5], lat, lon) < minKm; });
+            if (!tooClose) { chosen.push(row); }
+            return chosen.length >= maxCount;
+        });
+        return chosen;
+    }
     function boxesOverlap(first, second) {
         return first.left < second.right && first.right > second.left && first.top < second.bottom && first.bottom > second.top;
     }
@@ -303,11 +317,16 @@
                 var geojson = payloads[0]; var payload = payloads[1]; var riverData = payloads[2];
                 var boundaries = (geojson.features || []).filter(function (feature) { return String(feature.properties.code).toUpperCase() === department; });
                 if (!boundaries.length) { throw new Error('contour départemental introuvable'); }
-                var cities = (payload.communes || []).filter(function (row) {
+                var candidateRows = (payload.communes || []).filter(function (row) {
                     return row[0] && row[1] && isFinite(Number(row[4])) && isFinite(Number(row[5])) && Number(row[6]) >= 0;
                 }).sort(function (left, right) {
                     return Number(right[3]) - Number(left[3]);
-                }).slice(0, 24).map(function (row) {
+                });
+                // Les villes trop proches les unes des autres (ex. agglomérations frontalières denses
+                // comme le Pays de Gex) rendent les étiquettes illisibles si on force les 24 villes les
+                // plus peuplées : on garde la plus peuplée de chaque groupe rapproché et on complète
+                // avec des villes plus éloignées plutôt que d'entasser un cluster.
+                var cities = pickSpreadOutCities(candidateRows, 24, 6).map(function (row) {
                     return { code: row[0], department: department, name: row[1], lat: Number(row[4]), lon: Number(row[5]), dx: 0, dy: 0 };
                 });
                 if (!cities.length) { throw new Error('villes départementales introuvables'); }
