@@ -29,7 +29,6 @@
 .hkw-ara-temperature { fill: #b42318; font: 800 16px Arial, sans-serif; paint-order: stroke; stroke: #fff; stroke-width: 3px; }
 .hkw-ara-wind-arrow { fill: #0a6072; font: 800 16px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
 .hkw-ara-wind-force { fill: #0a6072; font: 800 9px Arial, sans-serif; paint-order: stroke; stroke: rgba(255,255,255,.92); stroke-width: 3px; }
-.hkw-ara-city-dot { fill: #111; stroke: #fff; stroke-width: 1.1; }
 .hkw-ara-city { cursor: pointer; outline: none; }
 .hkw-ara-city:focus .hkw-ara-icon { filter: drop-shadow(0 0 3px #174f2c); }
 /* Icônes météo vectorielles (au lieu d'emoji dépendant d'une police système absente

@@ -366,11 +366,10 @@
             var row = (forecasts[city.code] || []).reduce(function (best, candidate) { if (candidate.day !== dayKey) { return best; } return !best || Math.abs(candidate.hour - targetHour) < Math.abs(best.hour - targetHour) ? candidate : best; }, null);
             if (!row) { return; }
             var group = svgNode('g', { class: 'hkw-ara-city', transform: 'translate(' + layout.x + ' ' + layout.y + ')', tabindex: '0', role: 'button', 'aria-label': 'Détails météo pour ' + city.name });
-            // Petit point de repère décalé sous l'icône (et non plus dessus/dessous à
-            // l'identique) : posé en plein milieu de l'icône météo, il ressemblait à une
-            // tache sur le pictogramme. Décalé en bas à gauche, il reste visible sans
-            // gêner la lecture de l'icône, de la température ou du vent.
-            group.appendChild(svgNode('circle', { class: 'hkw-ara-city-dot', cx: -15, cy: 14, r: 3 }));
+            // Pas de point de repère séparé : l'icône est déjà toujours exactement à la
+            // position géographique réelle (aucun décalage depuis la 2.21.15), donc un
+            // point à côté était soit caché dessous, soit décalé et trompeur dans les
+            // zones à villes rapprochées.
             group.appendChild(weatherIconGroup(weatherIconKind(row.condition, row.precipitation, row.cloud)));
             group.appendChild(svgNode('text', { class: 'hkw-ara-temperature', x: 24, y: 2 }, Math.round(row.temperature) + '°'));
             // Le nom de ville n'est plus affiché sur la carte (déjà dans l'infobulle et

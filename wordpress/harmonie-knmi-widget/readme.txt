@@ -3,7 +3,7 @@ Contributors: alertesmeteo-hub
 Tags: meteo, harmonie, arome, knmi, previsions
 Requires at least: 5.8
 Requires PHP: 7.4
-Stable tag: 2.21.19
+Stable tag: 2.21.20
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,6 +48,9 @@ Carte à pictogrammes pour n’importe quel département métropolitain :
 `[harmonie_carte_icones departement="66"]`
 
 == Changelog ==
+
+= 2.21.20 =
+* Point de repère noir supprimé : décalé en bas à gauche de l'icône en 2.21.19 pour rester visible, il ne marquait plus la position géographique exacte et semblait mal placé dans les zones à villes rapprochées (ex. Pyrénées-Orientales). L'icône elle-même est déjà exactement à la bonne position depuis la 2.21.15 ; un point séparé était soit caché dessous (2.21.18), soit décalé et trompeur (2.21.19). Retiré.
 
 = 2.21.19 =
 * Seuil de superficie des forêts abaissé de 5 à 2 km² : en zone de montagne (Pyrénées notamment), les forêts sont souvent plus petites/fragmentées que les grands massifs de plaine et étaient exclues à tort. 1101 forêts au total (contre 494), présence vérifiée dans les Pyrénées-Orientales (Madrès, Aiguebonnes, Gailles, Callong-Mirailles…).
