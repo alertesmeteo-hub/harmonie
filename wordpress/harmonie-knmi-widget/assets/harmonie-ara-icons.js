@@ -42,7 +42,7 @@
             ['2A004','2A','Ajaccio',41.919,8.738], ['2B033','2B','Bastia',42.697,9.450], ['2B096','2B','Corte',42.306,9.150]
         ]}
     };
-    var SIZE = { width: 1120, height: 720 };
+    var SIZE = { width: 1280, height: 820 };
     var mapSequence = 0;
     Object.keys(REGIONS).forEach(function (slug) {
         REGIONS[slug].cities = REGIONS[slug].cities.map(function (city) {
@@ -197,11 +197,12 @@
         return lines;
     }
     function layoutCities(cities, project, reserveLegend, strict) {
-        var occupied = reserveLegend ? [{ left: 10, right: 270, top: 620, bottom: 708 }] : [];
-        var candidates = [
-            [0,0],[0,-56],[0,58],[68,-24],[-68,-24],[74,36],[-74,36],[0,-108],[0,110],[125,-58],[-125,-58],[130,62],[-130,62],
-            [40,-90],[-40,-90],[40,92],[-40,92],[105,-14],[-105,-14],[105,16],[-105,16],[0,-160],[0,160],[170,-40],[-170,-40],[170,40],[-170,40]
-        ];
+        var occupied = reserveLegend ? [{ left: 10, right: 270, top: 720, bottom: 808 }] : [];
+        // Décalages volontairement modestes : un décalage trop grand entre le point (position
+        // réelle) et l'étiquette donne l'impression que la ville est mal placée. Si aucune de
+        // ces positions proches ne convient, la ville est omise (mode strict) plutôt que
+        // déplacée loin de son point.
+        var candidates = [[0,0],[0,-52],[0,54],[62,-22],[-62,-22],[66,32],[-66,32],[0,-92],[0,92],[88,-46],[-88,-46]];
         return cities.reduce(function (placed, city) {
             var base = project([city.lon, city.lat]); var choice = null; var fallback = null; var fallbackOverlaps = Infinity;
             candidates.some(function (offset) {
@@ -258,7 +259,7 @@
             svg.appendChild(riverGroup);
         }
         if (showReliefLegend) {
-            var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 625)' });
+            var legend = svgNode('g', { class: 'hkw-ara-map-legend', transform: 'translate(14 725)' });
             legend.appendChild(svgNode('rect', { x: 0, y: 0, width: 250, height: 77, rx: 8 }));
             legend.appendChild(svgNode('text', { x: 10, y: 18, class: 'hkw-ara-legend-title' }, 'Relief (m)'));
             [[0,'0'],[200,'200'],[500,'500'],[1000,'1 000'],[2000,'2 000+']].forEach(function (item, index) {
@@ -350,7 +351,7 @@
                 // comme le Pays de Gex) rendent les étiquettes illisibles si on force les 24 villes les
                 // plus peuplées : on garde la plus peuplée de chaque groupe rapproché et on complète
                 // avec des villes plus éloignées plutôt que d'entasser un cluster.
-                var cities = pickSpreadOutCities(candidateRows, 16, 6).map(function (row) {
+                var cities = pickSpreadOutCities(candidateRows, 12, 7).map(function (row) {
                     return { code: row[0], department: department, name: row[1], lat: Number(row[4]), lon: Number(row[5]), dx: 0, dy: 0 };
                 });
                 if (!cities.length) { throw new Error('villes départementales introuvables'); }
