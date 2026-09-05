@@ -3,7 +3,7 @@
  * Plugin Name: Tableau HARMONIE KNMI France
  * Plugin URI: https://github.com/alertesmeteo-hub/harmonie
  * Description: Trois tableaux HARMONIE-AROME au choix : prévisions générales, diagnostics orageux et risque de neige pour toutes les communes de France métropolitaine.
- * Version: 2.21.22
+ * Version: 2.22.0
  * Author: Alertes Météo Hub
  * Requires at least: 5.8
  * Requires PHP: 7.4
@@ -14,8 +14,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('HKW_VERSION', '2.21.22');
-define('HKW_RELEASE_DATE', '2026-09-04');
+define('HKW_VERSION', '2.22.0');
+define('HKW_RELEASE_DATE', '2026-09-05');
 define('HKW_OPTION_BASE_URL', 'hkw_national_data_base_url');
 define(
     'HKW_DEFAULT_BASE_URL',
@@ -325,6 +325,7 @@ function hkw_render_ara_icon_map_shortcode($atts) {
         data-boundary-url="https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/main/config/departements-france.geojson"
         data-rivers-base-url="https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/main/config/rivers/"
         data-forests-base-url="https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/main/config/forests/"
+        data-lakes-base-url="https://raw.githubusercontent.com/alertesmeteo-hub/harmonie/main/config/lakes/"
         data-timezone="<?php echo esc_attr(wp_timezone_string()); ?>"
         data-region="<?php echo esc_attr($region); ?>"
         data-department="<?php echo esc_attr($department); ?>"

@@ -319,7 +319,7 @@
             return placed;
         }, []);
     }
-    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests) {
+    function renderMap(title, targetHour, dayKey, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests, lakes) {
         var panel = htmlNode('article', 'hkw-ara-icon-panel'); panel.appendChild(htmlNode('h3', '', title));
         var svg = svgNode('svg', { viewBox: '0 0 ' + SIZE.width + ' ' + SIZE.height, role: 'img', 'aria-label': title + ' en ' + region.name });
         var clipId = 'hkw-department-clip-' + (++mapSequence);
@@ -353,6 +353,18 @@
                 forestGroup.appendChild(forestItem);
             });
             svg.appendChild(forestGroup);
+        }
+        if (lakes && lakes.length) {
+            var lakeGroup = svgNode('g', { class: 'hkw-ara-lakes', 'clip-path': 'url(#' + clipId + ')' });
+            lakes.forEach(function (feature) {
+                var path = geometryPath(feature.geometry, project); var name = feature.properties && feature.properties.name;
+                if (!path) { return; }
+                var lakeItem = svgNode('g', { class: 'hkw-ara-lake', tabindex: name ? '0' : '-1', 'aria-label': name || undefined });
+                lakeItem.appendChild(svgNode('path', { d: path }));
+                if (name) { labeledTooltip(lakeItem, tooltip, app, name, 'Lac'); }
+                lakeGroup.appendChild(lakeItem);
+            });
+            svg.appendChild(lakeGroup);
         }
         if (rivers && rivers.length) {
             var riverGroup = svgNode('g', { class: 'hkw-ara-rivers', 'clip-path': 'url(#' + clipId + ')' });
@@ -423,6 +435,26 @@
         Object.keys(REGIONS).forEach(function (slug) { var option = htmlNode('option', '', REGIONS[slug].name); option.value = slug; selector.appendChild(option); });
         selector.value = REGIONS[app.dataset.region] ? app.dataset.region : 'auvergne-rhone-alpes';
         var controlLabel = htmlNode('label', '', 'Région :'); controls.appendChild(controlLabel); controls.appendChild(selector);
+        // Bouton pour masquer/afficher les cours d'eau sur la carte (desktop
+        // uniquement — sur mobile ils sont déjà masqués d'office par CSS, le
+        // bouton y est donc superflu et caché). État mémorisé par navigateur.
+        var riverToggle = htmlNode('button', 'hkw-river-toggle', '🌊 Cours d’eau');
+        riverToggle.type = 'button';
+        var riversHidden = false;
+        try { riversHidden = localStorage.getItem('hkw-hide-rivers') === '1'; } catch (e) {}
+        function applyRiverToggle() {
+            app.classList.toggle('hkw-hide-rivers', riversHidden);
+            riverToggle.classList.toggle('is-active', riversHidden);
+            riverToggle.setAttribute('aria-pressed', String(riversHidden));
+            riverToggle.textContent = (riversHidden ? '🌊 Afficher' : '🌊 Masquer') + ' les cours d’eau';
+        }
+        applyRiverToggle();
+        riverToggle.addEventListener('click', function () {
+            riversHidden = !riversHidden;
+            try { localStorage.setItem('hkw-hide-rivers', riversHidden ? '1' : '0'); } catch (e) {}
+            applyRiverToggle();
+        });
+        controls.appendChild(riverToggle);
         if (app.dataset.selector !== 'non') { app.insertBefore(controls, app.querySelector('.hkw-ara-icons-loading')); }
         app.appendChild(content);
         function loadRegion(slug) {
@@ -434,9 +466,9 @@
             // affiche réellement. Une rivière à cheval sur deux départements de la région peut
             // être présente dans les deux fichiers ; dedupeFeatures() ci-dessous évite de la
             // dessiner deux fois.
-            Promise.all([boundaryPromise].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); })).concat(departments.map(function (code) { return fetchJson(app.dataset.riversBaseUrl + code + '.geojson'); })).concat(departments.map(function (code) { return fetchJson(app.dataset.forestsBaseUrl + code + '.geojson'); }))).then(function (payloads) {
+            Promise.all([boundaryPromise].concat(departments.map(function (code) { return fetchJson(base + '/departements/' + code + '.json'); })).concat(departments.map(function (code) { return fetchJson(app.dataset.riversBaseUrl + code + '.geojson'); })).concat(departments.map(function (code) { return fetchJson(app.dataset.forestsBaseUrl + code + '.geojson'); })).concat(departments.map(function (code) { return fetchJson(app.dataset.lakesBaseUrl + code + '.geojson'); }))).then(function (payloads) {
                 var geojson = payloads.shift(); var byDepartment = {}; departments.forEach(function (code, index) { byDepartment[code] = payloads[index]; });
-                var riverPayloads = payloads.splice(0, departments.length); var forestPayloads = payloads.splice(0, departments.length);
+                var riverPayloads = payloads.splice(0, departments.length); var forestPayloads = payloads.splice(0, departments.length); var lakePayloads = payloads.splice(0, departments.length);
                 var forecasts = {}; region.cities.forEach(function (city) { forecasts[city.code] = parseDepartment(byDepartment[city.department], city, tools); });
                 var firstRows = []; region.cities.some(function (city) { firstRows = forecasts[city.code] || []; return firstRows.length > 0; });
                 var days = Array.from(new Set(firstRows.map(function (row) { return row.day; }))).slice(0, 3);
@@ -448,18 +480,19 @@
                 }, []);
                 var rivers = dedupeFeatures(riverPayloads.reduce(function (all, p) { return all.concat(p.features || []); }, []));
                 var forests = dedupeFeatures(forestPayloads.reduce(function (all, p) { return all.concat(p.features || []); }, []));
+                var lakes = dedupeFeatures(lakePayloads.reduce(function (all, p) { return all.concat(p.features || []); }, []));
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests, lakes), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests, lakes));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });
         }
         function loadDepartment(department) {
             content.replaceChildren(htmlNode('p', 'hkw-ara-icons-loading', 'Chargement des prévisions HARMONIE…'));
-            Promise.all([boundaryPromise, fetchJson(base + '/departements/' + department + '.json'), fetchJson(app.dataset.riversBaseUrl + department + '.geojson'), fetchJson(app.dataset.forestsBaseUrl + department + '.geojson')]).then(function (payloads) {
-                var geojson = payloads[0]; var payload = payloads[1]; var riverData = payloads[2]; var forestData = payloads[3];
+            Promise.all([boundaryPromise, fetchJson(base + '/departements/' + department + '.json'), fetchJson(app.dataset.riversBaseUrl + department + '.geojson'), fetchJson(app.dataset.forestsBaseUrl + department + '.geojson'), fetchJson(app.dataset.lakesBaseUrl + department + '.geojson')]).then(function (payloads) {
+                var geojson = payloads[0]; var payload = payloads[1]; var riverData = payloads[2]; var forestData = payloads[3]; var lakeData = payloads[4];
                 var boundaries = (geojson.features || []).filter(function (feature) { return String(feature.properties.code).toUpperCase() === department; });
                 if (!boundaries.length) { throw new Error('contour départemental introuvable'); }
                 var candidateRows = (payload.communes || []).filter(function (row) {
@@ -482,13 +515,14 @@
                 var terrain = (payload.points || []).map(function (row) { return { lat: Number(row[1]), lon: Number(row[2]), altitude: Math.max(0, Number(row[3]) || 0) }; });
                 var rivers = riverData.features || [];
                 var forests = forestData.features || [];
+                var lakes = lakeData.features || [];
                 var firstRows = []; cities.some(function (city) { firstRows = forecasts[city.code] || []; return firstRows.length > 0; });
                 var days = Array.from(new Set(firstRows.map(function (row) { return row.day; }))).slice(0, 3);
                 if (!days.length) { throw new Error('prévisions départementales indisponibles'); }
                 var project = projector(coordinateBounds(boundaries)); var navigation = htmlNode('div', 'hkw-ara-day-buttons'); var maps = htmlNode('div', 'hkw-ara-icon-maps'); content.replaceChildren(navigation, maps);
                 function display(day, activeButton) {
                     navigation.querySelectorAll('button').forEach(function (button) { button.classList.toggle('is-active', button === activeButton); });
-                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests));
+                    maps.replaceChildren(renderMap('Matin · 09 h', 9, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests, lakes), renderMap('Après-midi · 15 h', 15, day, forecasts, boundaries, region, project, tooltip, app, terrain, rivers, forests, lakes));
                 }
                 days.forEach(function (day, index) { var button = htmlNode('button', '', tools.label.format(new Date(day + 'T12:00:00'))); button.type = 'button'; button.addEventListener('click', function () { display(day, button); }); navigation.appendChild(button); if (index === 0) { display(day, button); } });
             }).catch(function (error) { content.replaceChildren(htmlNode('p', 'hkw-ara-icons-error', 'Carte indisponible : ' + error.message)); });

@@ -4,6 +4,9 @@
 .hkw-region-selector { min-width: 280px; max-width: 100%; padding: 9px 36px 9px 12px; border: 1px solid #98bd6e; border-radius: 8px; background: #fff; color: #234512; font: inherit; }
 .hkw-department-location { padding: 9px 14px; border: 1px solid #397348; border-radius: 8px; background: #2e7d32; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
 .hkw-department-location:disabled { cursor: wait; opacity: .7; }
+.hkw-river-toggle { padding: 9px 14px; border: 1px solid #2f6fa8; border-radius: 8px; background: #fff; color: #1c4f80; font: inherit; font-weight: 700; cursor: pointer; }
+.hkw-river-toggle.is-active { background: #2f6fa8; color: #fff; }
+.hkw-hide-rivers .hkw-ara-rivers { display: none; }
 .hkw-ara-day-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .hkw-ara-day-buttons button { padding: 9px 15px; border: 1px solid #98bd6e; border-radius: 999px; background: #fff; color: #31531c; font-weight: 700; cursor: pointer; text-transform: capitalize; }
 .hkw-ara-day-buttons button.is-active { background: #2e7d32; color: #fff; }
@@ -15,6 +18,9 @@
 .hkw-ara-forest { cursor: pointer; outline: none; }
 .hkw-ara-forest path { fill: rgba(30,90,30,.28); stroke: rgba(24,70,24,.4); stroke-width: 1; pointer-events: fill; }
 .hkw-ara-forest:hover path, .hkw-ara-forest:focus path { fill: rgba(30,90,30,.4); }
+.hkw-ara-lake { cursor: pointer; outline: none; }
+.hkw-ara-lake path { fill: rgba(47,111,168,.45); stroke: #2f6fa8; stroke-width: 1; pointer-events: fill; }
+.hkw-ara-lake:hover path, .hkw-ara-lake:focus path { fill: rgba(47,111,168,.62); }
 .hkw-ara-relief circle { opacity: .62; }
 .hkw-ara-rivers path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .hkw-ara-river-bed { stroke: #2f6fa8; stroke-width: 3.2; opacity: .5; }
@@ -51,6 +57,8 @@
     .hkw-region-controls { align-items: stretch; flex-direction: column; }
     .hkw-region-selector { width: 100%; min-width: 0; }
     .hkw-department-location { width: 100%; }
+    .hkw-river-toggle { display: none; }
     .hkw-ara-icon-maps { grid-template-columns: 1fr; }
     .hkw-ara-icon-panel h3 { font-size: 18px; }
+    .hkw-ara-rivers { display: none; }
 }
